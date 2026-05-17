@@ -1,6 +1,6 @@
 # Panahon 🌤
 
-A terminal weather forecast tool written in TypeScript — current conditions, 7-day forecast, wind & humidity. Powered by [Open-Meteo](https://open-meteo.com/) (no API key required).
+A terminal weather forecast tool written in TypeScript — current conditions, 7-day forecast, wind & humidity. Powered by [Open-Meteo](https://open-meteo.com/).
 
 > _Panahon_ (Tagalog) — weather, season, or time.
 
@@ -61,15 +61,15 @@ pan history yesterday Tokyo
 
 ### Commands
 
-| Command                              | Description                                            |
-| ------------------------------------ | ------------------------------------------------------ |
-| `panahon <location>` / `pan <location>` | Show forecast for the given city                  |
-| `pan now [loc]`                      | Same as above, with `--lat` / `--lon` coordinate flags |
-| `pan auto`                           | Detect location via IP and show forecast               |
-| `pan <date> [loc]`                   | Historical weather for a past date (`YYYY-MM-DD`)      |
-| `pan history <date> [loc]`           | Explicit historical subcommand (alias: `on`)           |
-| `pan -h, --help`                     | Show help                                              |
-| `pan -v, --version`                  | Show version                                           |
+| Command                                 | Description                                            |
+| --------------------------------------- | ------------------------------------------------------ |
+| `panahon <location>` / `pan <location>` | Show forecast for the given city                       |
+| `pan now [loc]`                         | Same as above, with `--lat` / `--lon` coordinate flags |
+| `pan auto`                              | Detect location via IP and show forecast               |
+| `pan <date> [loc]`                      | Historical weather for a past date (`YYYY-MM-DD`)      |
+| `pan history <date> [loc]`              | Explicit historical subcommand (alias: `on`)           |
+| `pan -h, --help`                        | Show help                                              |
+| `pan -v, --version`                     | Show version                                           |
 
 ## Example output
 
