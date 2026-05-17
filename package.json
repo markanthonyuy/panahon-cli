@@ -1,6 +1,6 @@
 {
   "name": "panahon",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Terminal weather forecast — current conditions, 7-day forecast, wind & humidity",
   "type": "module",
   "main": "dist/index.js",
