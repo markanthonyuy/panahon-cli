@@ -20,6 +20,7 @@ import chalk from "chalk";
 import stringWidth from "string-width";
 import { getWeather, getHistoricalWeather } from "./weather.js";
 import { displayWeather, displayHistorical } from "./display.js";
+import { animateArt } from "./ascii.js";
 import {
   GEOCODING_API_URL,
   IP_LOCATION_API_URL,
@@ -39,6 +40,13 @@ function footer(): string {
     GITHUB_REPO_URL
   );
 }
+
+/**
+ * Number of terminal lines {@link printFooter} writes. Used by the
+ * animation offset calculation so the cursor jumps back to the art block.
+ * Two-line attribution + one trailing blank line.
+ */
+const FOOTER_LINES = 3;
 
 /**
  * Print the {@link footer} to stdout in grey, followed by a trailing blank
@@ -203,8 +211,11 @@ async function runHistorical(
       `\nFetching historical weather for ${locationName} on ${dateStr}...\n`,
     );
     const data = await getHistoricalWeather(lat, lon, dateStr);
-    displayHistorical(data, locationName, dateStr);
+    const meta = displayHistorical(data, locationName, dateStr);
     printFooter();
+    if (meta) {
+      await animateArt(data.daily.weather_code[0], meta.linesBelowArtTop + FOOTER_LINES);
+    }
   } catch (err) {
     console.error(`\n❌  Error: ${(err as Error).message}\n`);
     process.exit(1);
@@ -242,8 +253,9 @@ async function runForecast(
 
     console.log(`\nFetching weather for ${locationName}...\n`);
     const data = await getWeather(lat, lon);
-    displayWeather(data, locationName);
+    const meta = displayWeather(data, locationName);
     printFooter();
+    await animateArt(data.current.weather_code, meta.linesBelowArtTop + FOOTER_LINES);
   } catch (err) {
     console.error(`\n❌  Error: ${(err as Error).message}\n`);
     process.exit(1);

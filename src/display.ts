@@ -6,8 +6,9 @@
  */
 
 import chalk, { type ChalkInstance } from "chalk";
-import stringWidth from "string-width";
 import type { WeatherData, HistoricalData } from "./weather.js";
+import { padR, padL } from "./utils.js";
+import { weatherArt, ART_WIDTH, ART_HEIGHT } from "./ascii.js";
 
 /**
  * Lookup table mapping WMO weather interpretation codes to a
@@ -114,35 +115,6 @@ function hr(char = "─", width = 64): string {
 }
 
 /**
- * Right-pad a string to a target visual width.
- *
- * Uses {@link stringWidth} so ANSI escape sequences count as 0 columns and
- * wide CJK/emoji characters count as 2. Strings already at or beyond `len`
- * are returned unchanged (never truncated).
- *
- * @param str - Input string (may contain ANSI codes / wide chars).
- * @param len - Target visual column count.
- */
-function padR(str: string, len: number): string {
-  const w = stringWidth(str);
-  if (w >= len) return str;
-  return str + " ".repeat(len - w);
-}
-
-/**
- * Left-pad a string to a target visual width. Mirror of {@link padR};
- * useful for right-aligning numeric columns.
- *
- * @param str - Input string.
- * @param len - Target visual column count.
- */
-function padL(str: string, len: number): string {
-  const w = stringWidth(str);
-  if (w >= len) return str;
-  return " ".repeat(len - w) + str;
-}
-
-/**
  * Render an emoji inside a fixed 2-column cell so that subsequent text lines
  * up consistently across terminals. Without this, emojis like `⛅` (no
  * variation selector) and `🌡️` (with VS16) can render at different widths
@@ -153,6 +125,7 @@ function padL(str: string, len: number): string {
 function emojiCell(e: string): string {
   return padR(e, 2);
 }
+
 
 /**
  * Print a full weather report (header, current conditions, 7-day forecast,
@@ -170,7 +143,10 @@ function emojiCell(e: string): string {
  * displayWeather(data, "Manila, Philippines");
  * ```
  */
-export function displayWeather(data: WeatherData, locationName: string): void {
+export function displayWeather(
+  data: WeatherData,
+  locationName: string,
+): { linesBelowArtTop: number } {
   const c = data.current;
   const d = data.daily;
   const unit = data.current_units;
@@ -197,57 +173,48 @@ export function displayWeather(data: WeatherData, locationName: string): void {
   const labelW = 16;
   const tempFn = tempColor(c.temperature_2m);
 
-  // Condition row
-  console.log(
-    "  " +
-      emojiCell(emoji) +
+  // Build the 5 metric rows once, then render them side-by-side with the
+  // ASCII art so we keep the art's row count exactly aligned to the metrics.
+  const metrics: string[] = [
+    emojiCell(emoji) +
       "  " +
       padR(chalk.gray("Condition"), labelW) +
       chalk.bold(desc),
-  );
 
-  // Temperature row (with "feels like" suffix)
-  console.log(
-    "  " +
-      emojiCell("🌡️") +
+    emojiCell("🌡️") +
       "  " +
       padR(chalk.gray("Temperature"), labelW) +
       tempFn(`${c.temperature_2m}${unit.temperature_2m}`) +
       chalk.gray(
         `  (feels like ${c.apparent_temperature}${unit.apparent_temperature})`,
       ),
-  );
 
-  // Wind row (speed + cardinal direction)
-  console.log(
-    "  " +
-      emojiCell("💨") +
+    emojiCell("💨") +
       "  " +
       padR(chalk.gray("Wind"), labelW) +
       chalk.yellow(
         `${c.wind_speed_10m} ${unit.wind_speed_10m} ${windDir(c.wind_direction_10m)}`,
       ),
-  );
 
-  // Humidity row (bar + percentage)
-  console.log(
-    "  " +
-      emojiCell("💧") +
+    emojiCell("💧") +
       "  " +
       padR(chalk.gray("Humidity"), labelW) +
       bar(c.relative_humidity_2m, 100, 16, chalk.blue) +
       "  " +
       chalk.blue(`${c.relative_humidity_2m}%`),
-  );
 
-  // Precipitation row
-  console.log(
-    "  " +
-      emojiCell("🌧️") +
+    emojiCell("🌧️") +
       "  " +
       padR(chalk.gray("Precipitation"), labelW) +
       chalk.cyan(`${c.precipitation} ${unit.precipitation}`),
-  );
+  ];
+
+  // Print art + metrics side by side. Art is fixed-height (ART_HEIGHT) and
+  // metrics also has 5 rows, so the zip is 1:1.
+  const art = weatherArt(c.weather_code);
+  for (let i = 0; i < ART_HEIGHT; i++) {
+    console.log("  " + art[i] + "  " + (metrics[i] ?? ""));
+  }
 
   console.log();
   console.log(hr());
@@ -336,11 +303,19 @@ export function displayWeather(data: WeatherData, locationName: string): void {
   // ── DATA SOURCE FOOTER ────────────────────────────────────
   console.log();
   console.log(hr("═"));
-  console.log(
-    chalk.gray("  Data: Open-Meteo.com (open-source, no API key required)"),
-  );
+  console.log(chalk.gray("  Data: Open-Meteo.com"));
   console.log(hr("═"));
   console.log();
+
+  // Lines from the cursor (now at the line below the trailing blank) up to
+  // the top art row. Used by the CLI to position the animation correctly.
+  //   ART_HEIGHT             : art rows
+  //   + 1 blank, 1 hr, 1 blank, 1 "7-DAY FORECAST", 1 blank, 1 header, 1 hr
+  //   + d.time.length        : forecast rows
+  //   + 1 blank, 1 hr══, 1 "Data:", 1 hr══, 1 blank
+  const linesBelowArtTop =
+    ART_HEIGHT + 7 + d.time.length + 5;
+  return { linesBelowArtTop };
 }
 
 /**
@@ -359,7 +334,7 @@ export function displayHistorical(
   data: HistoricalData,
   locationName: string,
   dateStr: string,
-): void {
+): { linesBelowArtTop: number } | null {
   const d = data.daily;
   const u = data.daily_units;
 
@@ -367,7 +342,7 @@ export function displayHistorical(
     console.log(
       chalk.yellow(`\n  No historical data available for ${dateStr}.\n`),
     );
-    return;
+    return null;
   }
 
   const [emoji, desc] = wmo(d.weather_code[0]);
@@ -407,63 +382,57 @@ export function displayHistorical(
   const loFn = tempColor(lo);
   const meanFn = tempColor(mean);
 
-  console.log(
-    "  " +
-      emojiCell(emoji) +
-      "  " +
-      padR(chalk.gray("Condition"), labelW) +
-      chalk.bold(desc),
-  );
-
-  console.log(
-    "  " +
-      emojiCell("🌡️") +
-      "  " +
-      padR(chalk.gray("High / Low"), labelW) +
-      hiFn(`${hi}${u.temperature_2m_max}`) +
-      chalk.gray("  /  ") +
-      loFn(`${lo}${u.temperature_2m_min}`),
-  );
-
-  console.log(
-    "  " +
-      emojiCell("🌡️") +
-      "  " +
-      padR(chalk.gray("Mean"), labelW) +
-      meanFn(`${mean}${u.temperature_2m_mean}`),
-  );
-
-  console.log(
-    "  " +
-      emojiCell("💨") +
-      "  " +
-      padR(chalk.gray("Wind (peak)"), labelW) +
-      chalk.yellow(`${windSpd} ${u.wind_speed_10m_max} ${windDir(windDeg)}`),
-  );
-
-  console.log(
-    "  " +
-      emojiCell("🌧️") +
-      "  " +
-      padR(chalk.gray("Precipitation"), labelW) +
-      chalk.cyan(`${rain} ${u.precipitation_sum}`),
-  );
-
   // Sunrise / sunset (formatted as HH:MM in the location's local time).
   const fmtTime = (iso: string): string => {
     const t = new Date(iso);
     return `${String(t.getHours()).padStart(2, "0")}:${String(t.getMinutes()).padStart(2, "0")}`;
   };
 
-  console.log(
-    "  " +
-      emojiCell("🌅") +
+  // 6 metric rows. Rendered side-by-side with the ART_HEIGHT (5) art rows,
+  // with the overflow metric printed under a blank art column.
+  const metrics: string[] = [
+    emojiCell(emoji) +
+      "  " +
+      padR(chalk.gray("Condition"), labelW) +
+      chalk.bold(desc),
+
+    emojiCell("🌡️") +
+      "  " +
+      padR(chalk.gray("High / Low"), labelW) +
+      hiFn(`${hi}${u.temperature_2m_max}`) +
+      chalk.gray("  /  ") +
+      loFn(`${lo}${u.temperature_2m_min}`),
+
+    emojiCell("🌡️") +
+      "  " +
+      padR(chalk.gray("Mean"), labelW) +
+      meanFn(`${mean}${u.temperature_2m_mean}`),
+
+    emojiCell("💨") +
+      "  " +
+      padR(chalk.gray("Wind (peak)"), labelW) +
+      chalk.yellow(`${windSpd} ${u.wind_speed_10m_max} ${windDir(windDeg)}`),
+
+    emojiCell("🌧️") +
+      "  " +
+      padR(chalk.gray("Precipitation"), labelW) +
+      chalk.cyan(`${rain} ${u.precipitation_sum}`),
+
+    emojiCell("🌅") +
       "  " +
       padR(chalk.gray("Sunrise / Sunset"), labelW) +
       chalk.yellow(fmtTime(sunrise)) +
       chalk.gray("  /  ") +
       chalk.magenta(fmtTime(sunset)),
-  );
+  ];
+
+  const art = weatherArt(d.weather_code[0]);
+  const blank = " ".repeat(ART_WIDTH);
+  for (let i = 0; i < Math.max(ART_HEIGHT, metrics.length); i++) {
+    const left = i < ART_HEIGHT ? art[i] : blank;
+    const right = metrics[i] ?? "";
+    console.log("  " + left + "  " + right);
+  }
 
   // ── DATA SOURCE FOOTER ────────────────────────────────────
   console.log();
@@ -475,4 +444,11 @@ export function displayHistorical(
   );
   console.log(hr("═"));
   console.log();
+
+  // Distance from cursor (now) up to the top art row.
+  //   max(ART_HEIGHT, metrics.length) : lines of art-or-metric rows
+  //   + 1 blank, 1 hr══, 1 "Data:", 1 hr══, 1 blank
+  const rowsPrinted = Math.max(ART_HEIGHT, metrics.length);
+  const linesBelowArtTop = rowsPrinted + 5;
+  return { linesBelowArtTop };
 }

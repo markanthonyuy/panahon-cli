@@ -24,11 +24,13 @@ This is a **portfolio project** by Mark Uy. Keep the code small, clean, and plea
 src/
 ├── index.ts        CLI entrypoint — commander setup, argument parsing, geocoding, dispatch
 ├── weather.ts      Open-Meteo API clients (forecast + archive) and response types
-├── display.ts      Terminal rendering — chalk styling, column alignment, WMO code table
+├── display.ts      Terminal rendering — chalk styling, column alignment, WMO emoji table
+├── ascii.ts        Multi-frame ASCII weather art + the animation engine (animateArt)
+├── utils.ts        Tiny shared helpers (padR / padL — visual-width-aware padding)
 └── constants.ts    API URLs and project metadata
 ```
 
-Files are ordered above by likelihood of being touched. `constants.ts` is rarely changed.
+Files are ordered above by likelihood of being touched. `constants.ts` and `utils.ts` are rarely changed. Adding a new weather frame or category goes in `ascii.ts`; adding a new section to the report or tweaking layout goes in `display.ts`.
 
 ## Commands
 
