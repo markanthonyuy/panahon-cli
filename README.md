@@ -16,9 +16,12 @@ A terminal weather forecast tool written in TypeScript — current conditions, 7
 
 ## Install
 
+Requires **Node.js 22+**. If you use [`mise`](https://mise.jdx.dev) (recommended), it will auto-install the right version from `.mise.toml`:
+
 ```bash
 git clone https://github.com/markanthonyuy/panahon-cli.git
-cd panahon
+cd panahon-cli
+mise trust && mise install   # optional: pins Node 22 LTS for this project
 npm install
 npm run build
 npm link

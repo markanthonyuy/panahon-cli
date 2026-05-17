@@ -1,0 +1,40 @@
+[tools]
+node = "22"
+
+[tasks.install]
+description = "Install npm dependencies"
+run = "npm install"
+
+[tasks.dev]
+description = "Run the CLI from source via tsx (no build step)"
+run = "npm run dev --"
+
+[tasks.typecheck]
+description = "Type-check the project without emitting files"
+run = "npm run typecheck"
+
+[tasks.build]
+description = "Compile TypeScript to dist/ and mark the binary executable"
+run = ["npm run build", "chmod +x dist/index.js"]
+
+[tasks.link]
+description = "Build and globally link the `panahon` CLI for local use"
+depends = ["build"]
+run = "npm link"
+
+[tasks.unlink]
+description = "Remove the global `panahon` symlink"
+run = "npm unlink -g panahon"
+
+[tasks.setup]
+description = "First-time setup: install deps, build, and link the CLI"
+depends = ["install", "link"]
+
+[tasks.clean]
+description = "Remove build output"
+run = "rm -rf dist"
+
+[tasks.try]
+description = "Smoke-test the CLI against a known location (Manila)"
+depends = ["build"]
+run = "./dist/index.js Manila"

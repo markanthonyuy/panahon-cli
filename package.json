@@ -4,6 +4,9 @@
   "description": "Terminal weather forecast — current conditions, 7-day forecast, wind & humidity",
   "type": "module",
   "main": "dist/index.js",
+  "engines": {
+    "node": ">=22"
+  },
   "bin": {
     "panahon": "dist/index.js"
   },

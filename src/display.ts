@@ -364,7 +364,9 @@ export function displayHistorical(
   const u = data.daily_units;
 
   if (!d.time?.length) {
-    console.log(chalk.yellow(`\n  No historical data available for ${dateStr}.\n`));
+    console.log(
+      chalk.yellow(`\n  No historical data available for ${dateStr}.\n`),
+    );
     return;
   }
 
@@ -436,9 +438,7 @@ export function displayHistorical(
       emojiCell("💨") +
       "  " +
       padR(chalk.gray("Wind (peak)"), labelW) +
-      chalk.yellow(
-        `${windSpd} ${u.wind_speed_10m_max} ${windDir(windDeg)}`,
-      ),
+      chalk.yellow(`${windSpd} ${u.wind_speed_10m_max} ${windDir(windDeg)}`),
   );
 
   console.log(
