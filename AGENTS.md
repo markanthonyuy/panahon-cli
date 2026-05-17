@@ -26,11 +26,19 @@ src/
 ├── weather.ts      Open-Meteo API clients (forecast + archive) and response types
 ├── display.ts      Terminal rendering — chalk styling, column alignment, WMO emoji table
 ├── ascii.ts        Multi-frame ASCII weather art + the animation engine (animateArt)
+├── dates.ts        Date parsing (yesterday / today / YYYY-MM-DD)
 ├── utils.ts        Tiny shared helpers (padR / padL — visual-width-aware padding)
 └── constants.ts    API URLs and project metadata
+
+tests/
+├── dates.test.ts   parseDate / toISODate unit tests
+├── utils.test.ts   padR / padL unit tests (ANSI + emoji width handling)
+├── ascii.test.ts   artCategory / randomWeatherCode / weatherArt invariants
+├── api.test.ts     Live health checks against Open-Meteo + ipapi.co (network)
+└── cli.test.ts     End-to-end: spawns dist/index.js and asserts on stdout
 ```
 
-Files are ordered above by likelihood of being touched. `constants.ts` and `utils.ts` are rarely changed. Adding a new weather frame or category goes in `ascii.ts`; adding a new section to the report or tweaking layout goes in `display.ts`.
+Files are ordered above by likelihood of being touched. `constants.ts`, `dates.ts`, and `utils.ts` are rarely changed. Adding a new weather frame or category goes in `ascii.ts`; adding a new section to the report or tweaking layout goes in `display.ts`.
 
 ## Commands
 
@@ -50,7 +58,20 @@ mise tasks           # list all available tasks with descriptions
 
 The underlying `npm run *` scripts (`dev`, `typecheck`, `build`, `start`) also still work — pick whichever fits your habit.
 
-**Always run `mise run typecheck` (or `npm run typecheck`) after editing `.ts` files.** There is no test suite — the type checker is the safety net.
+### Tests
+
+Tests use **Node's built-in test runner** (`node --test`) plus `tsx` as a TypeScript loader — no extra test framework dependency. Layout: pure unit tests run instantly; API and CLI tests are slower and hit live endpoints / the built binary.
+
+```bash
+mise run test         # all tests (unit + API + CLI). Requires a build.
+mise run test:unit    # dates, utils, ascii — pure, fast, no network
+mise run test:api     # live health checks for Open-Meteo + ipapi.co
+mise run test:cli     # spawns dist/index.js, asserts on stdout / exit codes
+
+PANAHON_SKIP_NETWORK=1 npm test   # skip API + network-dependent CLI tests
+```
+
+**Always run `mise run typecheck` and `mise run test:unit` after editing `.ts` files.** Add a test alongside any new exported function in `dates.ts`, `utils.ts`, or `ascii.ts`. For new CLI flags or commands, add a case to `tests/cli.test.ts`.
 
 **Always run `npm run typecheck` after editing `.ts` files.** There is no test suite — the type checker is your safety net.
 
@@ -99,7 +120,7 @@ User-facing errors should:
 
 ## Things NOT to do
 
-- **Do not add a test framework, linter, formatter config, or CI** unless explicitly asked. This is a small portfolio project — extra tooling muddies the impression.
+- **Do not add a linter, formatter config, or CI** unless explicitly asked. This is a small portfolio project — extra tooling muddies the impression. (Tests are in place using Node's built-in runner — extend them, don't add Jest/Vitest.)
 - **Do not introduce another HTTP library, CLI framework, or styling library.** Stick with axios / commander / chalk.
 - **Do not add backwards-compatibility shims** for the JS→TS migration. The repo is fully TypeScript; no `.js` source files exist (only built output in `dist/`).
 - **Do not commit `dist/` or `node_modules/`.** Both are in `.gitignore`.

@@ -333,6 +333,36 @@ const ART_COLOR: Record<ArtCategory, ChalkInstance> = {
 };
 
 /**
+ * One representative WMO code per {@link ArtCategory}. Used by
+ * {@link randomWeatherCode} so the "random" art shown on the help screen
+ * cycles through visually distinct weather types rather than picking, say,
+ * two near-identical rain frames in a row.
+ */
+const REPRESENTATIVE_CODES: readonly number[] = [
+  0,  // sunny
+  1,  // mostlyClear
+  2,  // partlyCloudy
+  3,  // cloudy
+  45, // fog
+  51, // drizzle
+  61, // rain
+  65, // heavyRain
+  80, // showers
+  71, // snow
+  75, // heavySnow
+  95, // thunder
+];
+
+/**
+ * Return a random WMO weather code, drawn from one representative per art
+ * category. Cosmetic only — used by the help-screen banner.
+ */
+export function randomWeatherCode(): number {
+  const i = Math.floor(Math.random() * REPRESENTATIVE_CODES.length);
+  return REPRESENTATIVE_CODES[i];
+}
+
+/**
  * Return the resting (frame 0) ASCII art for a WMO weather code, fully
  * styled and padded so that each line occupies exactly {@link ART_WIDTH}
  * visible columns. Always returns {@link ART_HEIGHT} lines.

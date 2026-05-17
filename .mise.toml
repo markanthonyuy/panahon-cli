@@ -38,3 +38,21 @@ run = "rm -rf dist"
 description = "Smoke-test the CLI against a known location (Manila)"
 depends = ["build"]
 run = "./dist/index.js Manila"
+
+[tasks.test]
+description = "Run all tests (unit + API + CLI). CLI tests require a build."
+depends = ["build"]
+run = "npm test"
+
+[tasks."test:unit"]
+description = "Run pure unit tests (dates, utils, ascii) — no network, no build"
+run = "npm run test:unit"
+
+[tasks."test:api"]
+description = "Probe live Open-Meteo + ipapi endpoints. Set PANAHON_SKIP_NETWORK=1 to skip"
+run = "npm run test:api"
+
+[tasks."test:cli"]
+description = "End-to-end CLI tests against dist/index.js (requires a build)"
+depends = ["build"]
+run = "npm run test:cli"

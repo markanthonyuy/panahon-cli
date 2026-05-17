@@ -8,13 +8,18 @@
     "node": ">=22"
   },
   "bin": {
-    "panahon": "dist/index.js"
+    "panahon": "dist/index.js",
+    "pan": "dist/index.js"
   },
   "scripts": {
     "build": "tsc",
     "start": "tsx src/index.ts",
     "dev": "tsx src/index.ts",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "test": "node --test --import tsx tests/*.test.ts",
+    "test:unit": "node --test --import tsx tests/dates.test.ts tests/utils.test.ts tests/ascii.test.ts",
+    "test:api": "node --test --import tsx tests/api.test.ts",
+    "test:cli": "node --test --import tsx tests/cli.test.ts"
   },
   "keywords": [
     "weather",

@@ -27,6 +27,8 @@ npm run build
 npm link
 ```
 
+This installs two binaries — `panahon` and the shorter alias `pan`. Use whichever you prefer.
+
 ## Usage
 
 ```bash
@@ -34,9 +36,11 @@ npm link
 panahon
 
 # Look up a city
-panahon "Las Pinas"
-panahon "Tokyo"
+panahon Manila
 panahon "New York"
+panahon Tokyo
+panahon London
+panahon Paris
 
 # Auto-detect location from your IP
 panahon auto
@@ -103,7 +107,13 @@ npm run dev          # run with tsx (no build step)
 npm run typecheck    # tsc --noEmit
 npm run build        # compile to dist/
 npm start            # alias for dev
+npm test             # all tests (unit + API + CLI; requires build)
+npm run test:unit    # fast pure unit tests, no network
+npm run test:api     # live Open-Meteo + ipapi health checks
+npm run test:cli     # end-to-end CLI tests against dist/index.js
 ```
+
+Set `PANAHON_SKIP_NETWORK=1` to skip the network-dependent tests in CI / offline.
 
 ### Project structure
 

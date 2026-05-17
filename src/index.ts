@@ -20,12 +20,18 @@ import chalk from "chalk";
 import stringWidth from "string-width";
 import { getWeather, getHistoricalWeather } from "./weather.js";
 import { displayWeather, displayHistorical } from "./display.js";
-import { animateArt } from "./ascii.js";
+import {
+  animateArt,
+  weatherArt,
+  randomWeatherCode,
+  ART_HEIGHT,
+} from "./ascii.js";
 import {
   GEOCODING_API_URL,
   IP_LOCATION_API_URL,
   GITHUB_REPO_URL,
 } from "./constants.js";
+import { parseDate } from "./dates.js";
 
 /**
  * Build the attribution footer shown both in `--help` output and at the end
@@ -58,6 +64,46 @@ function printFooter(): void {
 }
 
 /**
+ * Render a random ASCII weather banner above the help screen, print the
+ * help text immediately, then animate the art in-place for 3 seconds.
+ *
+ * The animation works by capturing Commander's help text via
+ * {@link Command.helpInformation} so we know exactly how many lines below the
+ * art the cursor will end up. {@link animateArt} moves the cursor back up
+ * that distance to redraw only the art's 12-column region, leaving the help
+ * text untouched.
+ *
+ * When stdout is not a TTY (piped to `less`, redirected to a file, …) the
+ * art still prints once (static frame) but the animation step is skipped
+ * automatically by {@link animateArt}, so output stays clean for scripts.
+ */
+async function showHelpBanner(): Promise<void> {
+  const code = randomWeatherCode();
+  const art = weatherArt(code);
+
+  // 1. Print the static banner (1 blank, ART_HEIGHT art lines, 1 blank).
+  console.log();
+  for (const line of art) {
+    console.log("  " + line);
+  }
+  console.log();
+
+  // 2. Print help immediately so the user can read it while art animates.
+  //    helpInformation() returns the standard help body but does NOT invoke
+  //    addHelpText() callbacks (those only fire from outputHelp/help). So we
+  //    append our Examples + Historical block manually here, mirroring what
+  //    `panahon --help` produces via the registered "after" hook.
+  const helpText = program.helpInformation() + renderHelpFooter() + "\n";
+  process.stdout.write(helpText);
+
+  // 3. Animate the art. Distance from cursor (right after help) back up to
+  //    the top art row = ART_HEIGHT + 1 (blank after art) + help line count.
+  //    Splitting on "\n" and subtracting 1 ignores the trailing newline.
+  const helpLines = helpText.split("\n").length - 1;
+  await animateArt(code, ART_HEIGHT + 1 + helpLines, 3000);
+}
+
+/**
  * Build the styled "Examples" + "Historical" + attribution block appended to
  * the help output. Colours match the rest of the help screen:
  * section titles in bold cyan, the `panahon` command name in bold green,
@@ -76,9 +122,13 @@ function renderHelpFooter(): string {
   const title = (s: string) => chalk.bold.cyan(s);
 
   const examples = [
-    [`$ ${cmd} ${arg('"Las Pinas"')}`,         "Show forecast for a city"],
-    [`$ ${cmd} ${sub("now")} ${arg("Tokyo")}`,  "Same as above (explicit subcommand)"],
-    [`$ ${cmd} ${sub("auto")}`,                 "Detect location from your IP"],
+    [`$ ${cmd} ${arg("Manila")}`,                                                       "Forecast for Manila (Philippines)"],
+    [`$ ${cmd} ${arg('"New York"')}`,                                                   "Forecast for New York (USA)"],
+    [`$ ${cmd} ${arg("Tokyo")}`,                                                        "Forecast for Tokyo (Japan)"],
+    [`$ ${cmd} ${arg("London")}`,                                                       "Forecast for London (UK)"],
+    [`$ ${cmd} ${arg("Paris")}`,                                                        "Forecast for Paris (France)"],
+    [`$ ${cmd} ${sub("now")} ${arg("Sydney")}`,                                         "Explicit subcommand form"],
+    [`$ ${cmd} ${sub("auto")}`,                                                         "Detect location from your IP"],
     [`$ ${cmd} ${sub("now")} ${flag("-l")} ${arg("14.5")} ${flag("-L")} ${arg("121")}`, "Use raw latitude/longitude"],
   ];
 
@@ -89,9 +139,16 @@ function renderHelpFooter(): string {
     [`$ ${cmd} ${sub("history")} ${arg("yesterday")} ${arg("Tokyo")}`, "Explicit history subcommand"],
   ];
 
+  // Match Commander's "term column" width so our Example/Historical
+  // descriptions line up with the Commands / Options / Arguments lists above.
+  // padWidth() returns the visible width of the longest term Commander will
+  // render (e.g. "history|on [options] <date> [location]").
+  const helper = program.createHelp();
+  const commanderPad = helper.padWidth(program, helper);
+
   // stringWidth ignores ANSI escape codes, so coloured rows still line up.
   const allRows = [...examples, ...historical];
-  const widest = Math.max(...allRows.map(([ex]) => stringWidth(ex)));
+  const widest = Math.max(commanderPad, ...allRows.map(([ex]) => stringWidth(ex)));
 
   const formatRow = ([ex, d]: string[]): string =>
     `  ${ex}${" ".repeat(widest - stringWidth(ex) + 2)}${desc(d)}`;
@@ -104,6 +161,7 @@ function renderHelpFooter(): string {
     title("Historical:"),
     ...historical.map(formatRow),
     "",
+    desc(`Tip: ${chalk.bold.green("pan")} is a shorter alias for ${chalk.bold.green("panahon")} — e.g. '${chalk.bold.green("pan")} ${chalk.magenta("Manila")}'.`),
     desc(`Run '${chalk.bold.green("panahon")} ${chalk.green("<command>")} ${chalk.yellow("--help")}' for command-specific help.`),
     "",
     chalk.gray(footer()),
@@ -142,42 +200,6 @@ interface GeocodingResult {
 /** Response envelope from the Open-Meteo geocoding API. */
 interface GeocodingResponse {
   results?: GeocodingResult[];
-}
-
-/**
- * Parse a user-supplied date token into a canonical ISO `YYYY-MM-DD` string.
- *
- * Accepted forms:
- *  - Keywords: `yesterday`, `today` (case-insensitive)
- *  - `YYYY-MM-DD` — ISO 8601 date (the only numeric format supported)
- *
- * @param s - Raw input token.
- * @returns ISO date string, or `null` if the input is not a recognised date.
- */
-function parseDate(s: string): string | null {
-  const lower = s.toLowerCase();
-
-  if (lower === "yesterday") {
-    const d = new Date();
-    d.setDate(d.getDate() - 1);
-    return toISODate(d);
-  }
-  if (lower === "today") {
-    return toISODate(new Date());
-  }
-
-  // YYYY-MM-DD (ISO 8601)
-  if (/^\d{4}-\d{2}-\d{2}$/.test(s)) return s;
-
-  return null;
-}
-
-/** Format a Date as a local `YYYY-MM-DD` string (no timezone shift). */
-function toISODate(d: Date): string {
-  const y = d.getFullYear();
-  const m = String(d.getMonth() + 1).padStart(2, "0");
-  const day = String(d.getDate()).padStart(2, "0");
-  return `${y}-${m}-${day}`;
 }
 
 /**
@@ -347,17 +369,19 @@ program
     "City name, or a date (yesterday | YYYY-MM-DD)",
   )
   .argument("[arg2]", "Location, when arg1 is a date")
-  .action((arg1: string | undefined, arg2: string | undefined) => {
+  .action(async (arg1: string | undefined, arg2: string | undefined) => {
     if (!arg1) {
-      program.help();
+      // No args: print help with a random animated ASCII weather banner above.
+      await showHelpBanner();
+      return;
     }
-    const iso = parseDate(arg1!);
+    const iso = parseDate(arg1);
     if (iso) {
       return runHistorical(iso, arg2, {});
     }
     // Looks like a numeric date but not ISO — give a clear hint instead of
     // letting it fall through to the geocoder and produce a "not found" error.
-    if (/^\d{1,4}[\/\-.]\d{1,2}[\/\-.]\d{1,4}$/.test(arg1!)) {
+    if (/^\d{1,4}[\/\-.]\d{1,2}[\/\-.]\d{1,4}$/.test(arg1)) {
       console.error(
         `\n❌  Error: "${arg1}" looks like a date but is not in ISO format. ` +
           `Use YYYY-MM-DD (e.g. 2024-12-25).\n`,
