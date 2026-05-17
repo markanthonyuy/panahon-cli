@@ -6,6 +6,7 @@
  */
 
 import chalk, { type ChalkInstance } from "chalk";
+import stringWidth from "string-width";
 import type { WeatherData, HistoricalData } from "./weather.js";
 import { padR, padL } from "./utils.js";
 import { weatherArt, ART_WIDTH, ART_HEIGHT } from "./ascii.js";
@@ -316,6 +317,82 @@ export function displayWeather(
   const linesBelowArtTop =
     ART_HEIGHT + 7 + d.time.length + 5;
   return { linesBelowArtTop };
+}
+
+/**
+ * Render a compact multi-city weather table for a country query.
+ *
+ * @param entries     - City name + weather data pairs, in order.
+ * @param countryName - The country name used as the page header.
+ */
+export function displayCountryWeather(
+  entries: Array<{ city: string; data: WeatherData }>,
+  countryName: string,
+  flag = "",
+): void {
+  const headerEmoji = flag || "🌍";
+  console.log(hr("═"));
+  console.log(
+    "  " +
+      emojiCell(headerEmoji) +
+      "  " +
+      chalk.bold.white(countryName) +
+      chalk.gray(`   •   ${new Date().toLocaleString()}`),
+  );
+  console.log(hr("═"));
+  console.log();
+  console.log("  " + chalk.bold.cyan(`WEATHER ACROSS ${countryName.toUpperCase()}`));
+  console.log();
+
+  const W = { city: 20, icon: 3, cond: 20, temp: 7, feels: 7, hum: 6, wind: 14 };
+
+  const truncate = (s: string, max: number): string =>
+    stringWidth(s) <= max ? s : s.slice(0, max - 1) + "…";
+
+  console.log(
+    "  " +
+      chalk.gray(
+        padR("City", W.city) +
+          padR("", W.icon) +
+          padR("Condition", W.cond) +
+          padL("Temp", W.temp) +
+          "  " +
+          padL("Feels", W.feels) +
+          "  " +
+          padL("Hum", W.hum) +
+          "  " +
+          padR("Wind", W.wind),
+      ),
+  );
+  console.log(hr());
+
+  for (const { city, data } of entries) {
+    const c = data.current;
+    const unit = data.current_units;
+    const [ico, label] = wmo(c.weather_code);
+    const tempFn = tempColor(c.temperature_2m);
+
+    console.log(
+      "  " +
+        chalk.white(padR(truncate(city, W.city), W.city)) +
+        emojiCell(ico) +
+        " " +
+        chalk.white(padR(label, W.cond)) +
+        tempFn(padL(`${c.temperature_2m}${unit.temperature_2m}`, W.temp)) +
+        "  " +
+        chalk.gray(padL(`${c.apparent_temperature}${unit.apparent_temperature}`, W.feels)) +
+        "  " +
+        chalk.blue(padL(`${c.relative_humidity_2m}%`, W.hum)) +
+        "  " +
+        chalk.yellow(`${c.wind_speed_10m} ${unit.wind_speed_10m} ${windDir(c.wind_direction_10m)}`),
+    );
+  }
+
+  console.log();
+  console.log(hr("═"));
+  console.log(chalk.gray("  Data: Open-Meteo.com"));
+  console.log(hr("═"));
+  console.log();
 }
 
 /**

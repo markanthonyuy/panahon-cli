@@ -5,6 +5,32 @@
 
 import stringWidth from "string-width";
 
+const SPINNER_FRAMES = ["⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"];
+
+/**
+ * Start a terminal spinner with a message. Returns a `stop` function that
+ * clears the spinner line. No-ops when stdout is not a TTY.
+ */
+export function startSpinner(message: string): () => void {
+  if (!process.stdout.isTTY) {
+    process.stdout.write(message + "\n");
+    return () => {};
+  }
+
+  let i = 0;
+  process.stdout.write(`  ${SPINNER_FRAMES[i]} ${message}`);
+
+  const timer = setInterval(() => {
+    i = (i + 1) % SPINNER_FRAMES.length;
+    process.stdout.write(`\r  ${SPINNER_FRAMES[i]} ${message}`);
+  }, 80);
+
+  return () => {
+    clearInterval(timer);
+    process.stdout.write("\r\x1b[K");
+  };
+}
+
 /**
  * Right-pad a string to a target visual width.
  *

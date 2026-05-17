@@ -117,4 +117,31 @@ describe("panahon CLI", () => {
       assert.match(stderr, /not found/i);
     });
   });
+
+  describe("country forecast", { skip: skipNetwork }, () => {
+    it("renders a multi-city table for a single-word country", async () => {
+      const { stdout, code } = await run("Japan");
+      assert.equal(code, 0);
+      assert.match(stdout, /Fetching weather across Japan/);
+      assert.match(stdout, /WEATHER ACROSS JAPAN/);
+      assert.match(stdout, /Tokyo/);
+      assert.match(stdout, /Osaka/);
+      // Must NOT show single-city output
+      assert.doesNotMatch(stdout, /CURRENT CONDITIONS/);
+      assert.doesNotMatch(stdout, /7-DAY FORECAST/);
+    });
+
+    it("renders a multi-city table for a multi-word country", async () => {
+      const { stdout, code } = await run("United Kingdom");
+      assert.equal(code, 0);
+      assert.match(stdout, /WEATHER ACROSS UNITED KINGDOM/);
+      assert.match(stdout, /London/);
+    });
+
+    it("shows the Data: Open-Meteo.com footer", async () => {
+      const { stdout, code } = await run("Germany");
+      assert.equal(code, 0);
+      assert.match(stdout, /Data: Open-Meteo\.com/);
+    });
+  });
 });

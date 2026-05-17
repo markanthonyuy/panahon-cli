@@ -9,7 +9,7 @@ import { describe, it } from "node:test";
 import assert from "node:assert/strict";
 import chalk from "chalk";
 import stringWidth from "string-width";
-import { padR, padL } from "../src/utils.ts";
+import { padR, padL, startSpinner } from "../src/utils.ts";
 
 describe("padR (right-pad to visual width)", () => {
   it("pads short ASCII strings with spaces", () => {
@@ -34,6 +34,24 @@ describe("padR (right-pad to visual width)", () => {
     // "⛅" renders 2 columns. Pad to 5 → expect 3 trailing spaces.
     const padded = padR("⛅", 5);
     assert.equal(stringWidth(padded), 5);
+  });
+});
+
+describe("startSpinner", () => {
+  it("returns a callable stop function", () => {
+    // In a non-TTY test environment the spinner writes the message once and
+    // returns a no-op. Calling stop() must not throw.
+    const stop = startSpinner("Loading…");
+    assert.equal(typeof stop, "function");
+    assert.doesNotThrow(() => stop());
+  });
+
+  it("stop() is idempotent — calling it twice does not throw", () => {
+    const stop = startSpinner("Test…");
+    assert.doesNotThrow(() => {
+      stop();
+      stop();
+    });
   });
 });
 

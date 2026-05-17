@@ -19,7 +19,7 @@ import axios from "axios";
 import chalk from "chalk";
 import stringWidth from "string-width";
 import { getWeather, getHistoricalWeather } from "./weather.js";
-import { displayWeather, displayHistorical } from "./display.js";
+import { displayWeather, displayHistorical, displayCountryWeather } from "./display.js";
 import {
   animateArt,
   weatherArt,
@@ -32,6 +32,8 @@ import {
   GITHUB_REPO_URL,
 } from "./constants.js";
 import { parseDate } from "./dates.js";
+import { startSpinner } from "./utils.js";
+import { COUNTRY_CITIES, COUNTRY_FLAGS, type CityEntry } from "./countries.js";
 
 /**
  * Build the attribution footer shown both in `--help` output and at the end
@@ -229,10 +231,10 @@ async function runHistorical(
       locationName = geo.name;
     }
 
-    console.log(
-      `\nFetching historical weather for ${locationName} on ${dateStr}...\n`,
-    );
+    console.log();
+    const stopSpinner = startSpinner(`Fetching historical weather for ${locationName} on ${dateStr}…`);
     const data = await getHistoricalWeather(lat, lon, dateStr);
+    stopSpinner();
     const meta = displayHistorical(data, locationName, dateStr);
     printFooter();
     if (meta) {
@@ -260,22 +262,47 @@ async function runForecast(
   opts: { lat?: string; lon?: string },
 ): Promise<void> {
   try {
-    let lat: number, lon: number, locationName: string;
-
+    // Raw coordinates → single-city forecast, skip country detection.
     if (opts.lat && opts.lon) {
-      lat = parseFloat(opts.lat);
-      lon = parseFloat(opts.lon);
-      locationName = `${lat}, ${lon}`;
-    } else {
-      const geo = await geocode(location ?? "auto");
-      lat = geo.lat;
-      lon = geo.lon;
-      locationName = geo.name;
+      const lat = parseFloat(opts.lat);
+      const lon = parseFloat(opts.lon);
+      const locationName = `${lat}, ${lon}`;
+      console.log();
+      const stop = startSpinner(`Fetching weather for ${locationName}…`);
+      const data = await getWeather(lat, lon);
+      stop();
+      const meta = displayWeather(data, locationName);
+      printFooter();
+      await animateArt(data.current.weather_code, meta.linesBelowArtTop + FOOTER_LINES);
+      return;
     }
 
-    console.log(`\nFetching weather for ${locationName}...\n`);
-    const data = await getWeather(lat, lon);
-    const meta = displayWeather(data, locationName);
+    // Named location: check if it resolves as a country first.
+    const query = location ?? "auto";
+    if (query !== "auto") {
+      const country = tryGeocodeCountry(query);
+      if (country) {
+        console.log();
+        const stop = startSpinner(`Fetching weather across ${country.name}…`);
+        const entries = await Promise.all(
+          country.cities.map(async (geo) => ({
+            city: geo.name,
+            data: await getWeather(geo.lat, geo.lon),
+          })),
+        );
+        stop();
+        displayCountryWeather(entries, country.name, country.flag);
+        return;
+      }
+    }
+
+    // Fall through to a regular single-city lookup.
+    const geo = await geocode(query);
+    console.log();
+    const stop = startSpinner(`Fetching weather for ${geo.name}…`);
+    const data = await getWeather(geo.lat, geo.lon);
+    stop();
+    const meta = displayWeather(data, geo.name);
     printFooter();
     await animateArt(data.current.weather_code, meta.linesBelowArtTop + FOOTER_LINES);
   } catch (err) {
@@ -435,5 +462,37 @@ async function geocode(query: string): Promise<GeoResult> {
     lat: r.latitude,
     lon: r.longitude,
     name: [r.name, r.admin1, r.country].filter(Boolean).join(", "),
+  };
+}
+
+/** Resolved country with its major cities. */
+interface CountryGeoResult {
+  /** Display name of the country (title-cased, e.g. "Philippines"). */
+  name: string;
+  /** Country flag emoji, e.g. "🇵🇭". Empty string if not found. */
+  flag: string;
+  /** Geocoded major cities, in population order. */
+  cities: GeoResult[];
+}
+
+/**
+ * If `query` matches a known country name, return its major cities with
+ * hardcoded coordinates. Returns `null` for city queries or unknown countries.
+ * No API calls — instant resolution from the local map.
+ */
+function tryGeocodeCountry(query: string): CountryGeoResult | null {
+  const key = query.toLowerCase();
+  const entries: CityEntry[] | undefined = COUNTRY_CITIES[key];
+  if (!entries) return null;
+
+  const countryDisplay = key
+    .split(" ")
+    .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
+    .join(" ");
+
+  return {
+    name: countryDisplay,
+    flag: COUNTRY_FLAGS[key] ?? "",
+    cities: entries.map((e) => ({ lat: e.lat, lon: e.lon, name: e.name })),
   };
 }
