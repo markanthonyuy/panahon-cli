@@ -17,6 +17,7 @@
 import { program } from "commander";
 import axios from "axios";
 import chalk from "chalk";
+import stringWidth from "string-width";
 import { getWeather, getHistoricalWeather } from "./weather.js";
 import { displayWeather, displayHistorical } from "./display.js";
 import {
@@ -46,6 +47,59 @@ function footer(): string {
 function printFooter(): void {
   console.log(chalk.gray(footer()));
   console.log();
+}
+
+/**
+ * Build the styled "Examples" + "Historical" + attribution block appended to
+ * the help output. Colours match the rest of the help screen:
+ * section titles in bold cyan, the `panahon` command name in bold green,
+ * subcommands in green, flags in yellow, dates / locations in magenta,
+ * descriptions in grey.
+ *
+ * @returns The fully styled multi-line string ready to be printed by Commander.
+ */
+function renderHelpFooter(): string {
+  // Helpers so the example rows stay readable below.
+  const cmd = chalk.bold.green("panahon");
+  const sub = (s: string) => chalk.green(s);
+  const flag = (s: string) => chalk.yellow(s);
+  const arg = (s: string) => chalk.magenta(s);
+  const desc = (s: string) => chalk.gray(s);
+  const title = (s: string) => chalk.bold.cyan(s);
+
+  const examples = [
+    [`$ ${cmd} ${arg('"Las Pinas"')}`,         "Show forecast for a city"],
+    [`$ ${cmd} ${sub("now")} ${arg("Tokyo")}`,  "Same as above (explicit subcommand)"],
+    [`$ ${cmd} ${sub("auto")}`,                 "Detect location from your IP"],
+    [`$ ${cmd} ${sub("now")} ${flag("-l")} ${arg("14.5")} ${flag("-L")} ${arg("121")}`, "Use raw latitude/longitude"],
+  ];
+
+  const historical = [
+    [`$ ${cmd} ${arg("yesterday")}`,                          "Yesterday's weather for your IP location"],
+    [`$ ${cmd} ${arg("2024-12-25")}`,                         "Specific date (ISO YYYY-MM-DD)"],
+    [`$ ${cmd} ${arg("2024-12-25")} ${arg('"Las Pinas"')}`,   "Specific date for a city"],
+    [`$ ${cmd} ${sub("history")} ${arg("yesterday")} ${arg("Tokyo")}`, "Explicit history subcommand"],
+  ];
+
+  // stringWidth ignores ANSI escape codes, so coloured rows still line up.
+  const allRows = [...examples, ...historical];
+  const widest = Math.max(...allRows.map(([ex]) => stringWidth(ex)));
+
+  const formatRow = ([ex, d]: string[]): string =>
+    `  ${ex}${" ".repeat(widest - stringWidth(ex) + 2)}${desc(d)}`;
+
+  return [
+    "",
+    title("Examples:"),
+    ...examples.map(formatRow),
+    "",
+    title("Historical:"),
+    ...historical.map(formatRow),
+    "",
+    desc(`Run '${chalk.bold.green("panahon")} ${chalk.green("<command>")} ${chalk.yellow("--help")}' for command-specific help.`),
+    "",
+    chalk.gray(footer()),
+  ].join("\n");
 }
 
 /** Resolved geographic location used to make a forecast request. */
@@ -197,6 +251,23 @@ async function runForecast(
 }
 
 // ─── COMMANDER SETUP ────────────────────────────────────────────
+
+// Colour-code the help output. Each hook receives a raw text segment and
+// returns the styled version. Disabled automatically when stdout is not a TTY
+// (so piping `panahon --help | less` stays clean).
+program.configureHelp({
+  styleTitle: (s) => chalk.bold.cyan(s),
+  styleCommandText: (s) => chalk.bold.green(s),
+  styleCommandDescription: (s) => chalk.white(s),
+  styleDescriptionText: (s) => chalk.gray(s),
+  styleOptionText: (s) => chalk.yellow(s),
+  styleArgumentText: (s) => chalk.magenta(s),
+  styleSubcommandText: (s) => chalk.green(s),
+  styleOptionTerm: (s) => chalk.yellow(s),
+  styleArgumentTerm: (s) => chalk.magenta(s),
+  styleSubcommandTerm: (s) => chalk.green(s),
+});
+
 program
   .name("panahon")
   .description(
@@ -205,25 +276,7 @@ program
   )
   .version("0.1.0", "-v, --version", "Show version number")
   .helpOption("-h, --help", "Show help")
-  .addHelpText(
-    "after",
-    `
-Examples:
-  $ panahon "Las Pinas"             Show forecast for a city
-  $ panahon now Tokyo               Same as above (explicit subcommand)
-  $ panahon auto                    Detect location from your IP
-  $ panahon now -l 14.5 -L 121      Use raw latitude/longitude
-
-Historical:
-  $ panahon yesterday               Yesterday's weather for your IP location
-  $ panahon 2024-12-25              Specific date (ISO YYYY-MM-DD)
-  $ panahon 2024-12-25 "Las Pinas"  Specific date for a city
-  $ panahon history yesterday Tokyo Explicit history subcommand
-
-Run 'panahon <command> --help' for command-specific help.
-
-${footer()}`,
-  );
+  .addHelpText("after", () => renderHelpFooter());
 
 // `panahon now [location]` — explicit subcommand, also aliased as `current`.
 // Supports `-l/--lat` and `-L/--lon` to skip geocoding entirely.
