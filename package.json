@@ -1,0 +1,35 @@
+{
+  "name": "panahon",
+  "version": "0.1.0",
+  "description": "Terminal weather forecast — current conditions, 7-day forecast, wind & humidity",
+  "type": "module",
+  "main": "dist/index.js",
+  "bin": {
+    "panahon": "dist/index.js"
+  },
+  "scripts": {
+    "build": "tsc",
+    "start": "tsx src/index.ts",
+    "dev": "tsx src/index.ts",
+    "typecheck": "tsc --noEmit"
+  },
+  "keywords": [
+    "weather",
+    "cli",
+    "terminal",
+    "forecast"
+  ],
+  "author": "Mark Uy <macmac.uy@gmail.com>",
+  "license": "ISC",
+  "dependencies": {
+    "axios": "^1.7.2",
+    "chalk": "^5.3.0",
+    "commander": "^12.1.0",
+    "string-width": "^8.2.1"
+  },
+  "devDependencies": {
+    "@types/node": "^22.0.0",
+    "tsx": "^4.19.0",
+    "typescript": "^5.6.0"
+  }
+}
