@@ -20,7 +20,7 @@
     "forecast"
   ],
   "author": "Mark Uy <macmac.uy@gmail.com>",
-  "license": "ISC",
+  "license": "MIT",
   "dependencies": {
     "axios": "^1.7.2",
     "chalk": "^5.3.0",

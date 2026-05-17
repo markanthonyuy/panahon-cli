@@ -124,4 +124,4 @@ Built as a portfolio piece to demonstrate TypeScript CLI design, terminal UX, an
 
 ## License
 
-ISC
+[MIT](./LICENSE) © Mark Uy
