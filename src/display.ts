@@ -110,7 +110,7 @@ function bar(
  * @param char  - Character to repeat (default `─`).
  * @param width - Total visual width (default 64).
  */
-function hr(char = "─", width = 64): string {
+function hr(char = "─", width = 82): string {
   return chalk.gray(char.repeat(width));
 }
 

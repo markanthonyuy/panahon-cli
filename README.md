@@ -33,44 +33,43 @@ This installs two binaries — `panahon` and the shorter alias `pan`. Use whiche
 
 ```bash
 # Show help
-panahon
+panahon        # or: pan
 
 # Look up a city
 panahon Manila
-panahon "New York"
-panahon Tokyo
-panahon London
-panahon Paris
+pan Manila
+pan "New York"
+pan Tokyo
 
 # Auto-detect location from your IP
-panahon auto
+pan auto
 
 # Use raw coordinates
-panahon now --lat 14.5 --lon 121.0
+pan now --lat 14.5 --lon 121.0
 
 # Explicit subcommand
-panahon now Manila
+pan now Manila
 
 # Historical weather (yesterday or any past ISO date)
-panahon yesterday
-panahon 2024-12-25
-panahon 2024-12-25 "Las Pinas"
-panahon history yesterday Tokyo
+pan yesterday
+pan 2024-12-25
+pan 2024-12-25 "Las Pinas"
+pan history yesterday Tokyo
 ```
 
 > Dates must be in ISO 8601 format: **`YYYY-MM-DD`**. The keywords `yesterday` and `today` are also accepted.
 
 ### Commands
 
-| Command                          | Description                                            |
-| -------------------------------- | ------------------------------------------------------ |
-| `panahon <location>`             | Show forecast for the given city                       |
-| `panahon now [loc]`              | Same as above, with `--lat` / `--lon` coordinate flags |
-| `panahon auto`                   | Detect location via IP and show forecast               |
-| `panahon <date> [loc]`           | Historical weather for a past date (`YYYY-MM-DD`)      |
-| `panahon history <date> [loc]`   | Explicit historical subcommand (alias: `on`)           |
-| `panahon -h, --help`             | Show help                                              |
-| `panahon -v, --version`          | Show version                                           |
+| Command                              | Description                                            |
+| ------------------------------------ | ------------------------------------------------------ |
+| `panahon <location>` / `pan <location>` | Show forecast for the given city                  |
+| `pan now [loc]`                      | Same as above, with `--lat` / `--lon` coordinate flags |
+| `pan auto`                           | Detect location via IP and show forecast               |
+| `pan <date> [loc]`                   | Historical weather for a past date (`YYYY-MM-DD`)      |
+| `pan history <date> [loc]`           | Explicit historical subcommand (alias: `on`)           |
+| `pan -h, --help`                     | Show help                                              |
+| `pan -v, --version`                  | Show version                                           |
 
 ## Example output
 
