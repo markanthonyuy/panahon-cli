@@ -99,6 +99,73 @@ describe("COUNTRY_CITIES", () => {
     }
   });
 
+  it("city coordinates are geographically correct (within 0.5° of known values)", () => {
+    // Tolerance of 0.5° ≈ 55 km. Tight enough to catch wrong-city mistakes,
+    // loose enough to survive minor precision differences.
+    const TOLERANCE = 0.5;
+
+    const known: Array<[string, string, number, number]> = [
+      // [country, city, lat, lon]
+      ["philippines", "Manila",           14.5995,  120.9842],
+      ["philippines", "Cebu City",        10.3157,  123.8854],
+      ["philippines", "Davao",             7.1907,  125.4553],
+      ["japan",       "Tokyo",            35.6762,  139.6503],
+      ["japan",       "Osaka",            34.6937,  135.5023],
+      ["japan",       "Sapporo",          43.0618,  141.3545],
+      ["united states", "New York",       40.7128,  -74.0060],
+      ["united states", "Los Angeles",    34.0522, -118.2437],
+      ["united states", "Chicago",        41.8781,  -87.6298],
+      ["united states", "Houston",        29.7604,  -95.3698],
+      ["united kingdom", "London",        51.5074,   -0.1278],
+      ["united kingdom", "Edinburgh",     55.9533,   -3.1883],
+      ["germany",     "Berlin",           52.5200,   13.4050],
+      ["germany",     "Munich",           48.1351,   11.5820],
+      ["france",      "Paris",            48.8566,    2.3522],
+      ["france",      "Marseille",        43.2965,    5.3698],
+      ["india",       "Mumbai",           19.0760,   72.8777],
+      ["india",       "Delhi",            28.7041,   77.1025],
+      ["india",       "Bangalore",        12.9716,   77.5946],
+      ["china",       "Beijing",          39.9042,  116.4074],
+      ["china",       "Shanghai",         31.2304,  121.4737],
+      ["brazil",      "São Paulo",       -23.5505,  -46.6333],
+      ["brazil",      "Rio de Janeiro",  -22.9068,  -43.1729],
+      ["australia",   "Sydney",          -33.8688,  151.2093],
+      ["australia",   "Melbourne",       -37.8136,  144.9631],
+      ["south africa","Johannesburg",    -26.2041,   28.0473],
+      ["south africa","Cape Town",       -33.9249,   18.4241],
+      ["egypt",       "Cairo",            30.0444,   31.2357],
+      ["nigeria",     "Lagos",             6.5244,    3.3792],
+      ["russia",      "Moscow",           55.7558,   37.6173],
+      ["russia",      "Saint Petersburg", 59.9343,   30.3351],
+      ["mexico",      "Mexico City",      19.4326,  -99.1332],
+      ["indonesia",   "Jakarta",          -6.2088,  106.8456],
+      ["saudi arabia","Riyadh",           24.6877,   46.7219],
+      ["turkey",      "Istanbul",         41.0082,   28.9784],
+      ["argentina",   "Buenos Aires",    -34.6037,  -58.3816],
+      ["south korea", "Seoul",            37.5665,  126.9780],
+      ["ukraine",     "Kyiv",             50.4501,   30.5234],
+      ["kenya",       "Nairobi",          -1.2921,   36.8219],
+      ["new zealand", "Auckland",        -36.8485,  174.7633],
+    ];
+
+    for (const [country, cityName, expectedLat, expectedLon] of known) {
+      const cities = COUNTRY_CITIES[country];
+      assert.ok(cities, `"${country}" not found in COUNTRY_CITIES`);
+
+      const city = cities.find((c) => c.name === cityName);
+      assert.ok(city, `"${cityName}" not found in "${country}"`);
+
+      assert.ok(
+        Math.abs(city.lat - expectedLat) <= TOLERANCE,
+        `${country}/${cityName}: lat ${city.lat} is more than ${TOLERANCE}° from expected ${expectedLat}`,
+      );
+      assert.ok(
+        Math.abs(city.lon - expectedLon) <= TOLERANCE,
+        `${country}/${cityName}: lon ${city.lon} is more than ${TOLERANCE}° from expected ${expectedLon}`,
+      );
+    }
+  });
+
   it("spot-checks capitals and major cities for key countries", () => {
     const checks: Array<[string, string]> = [
       ["philippines", "Manila"],
