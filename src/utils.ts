@@ -6,6 +6,7 @@
 import stringWidth from "string-width";
 
 const SPINNER_FRAMES = ["⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"];
+const SPINNER_INTERVAL_MS = 80;
 
 /**
  * Start a terminal spinner with a message. Returns a `stop` function that
@@ -23,7 +24,7 @@ export function startSpinner(message: string): () => void {
   const timer = setInterval(() => {
     i = (i + 1) % SPINNER_FRAMES.length;
     process.stdout.write(`\r  ${SPINNER_FRAMES[i]} ${message}`);
-  }, 80);
+  }, SPINNER_INTERVAL_MS);
 
   return () => {
     clearInterval(timer);

@@ -11,6 +11,7 @@ import axios from "axios";
 import {
   WEATHER_API_URL,
   HISTORICAL_API_URL,
+  AIR_QUALITY_API_URL,
   IP_LOCATION_API_URL,
 } from "../src/constants.ts";
 
@@ -58,6 +59,26 @@ describe("Open-Meteo archive API", { skip }, () => {
     assert.ok(Array.isArray(res.data.daily.time));
     assert.equal(res.data.daily.time.length, 1);
     assert.equal(typeof res.data.daily.temperature_2m_max[0], "number");
+  });
+});
+
+describe("Open-Meteo air quality API", { skip }, () => {
+  it("returns 200 with current block containing us_aqi and pollutants", async () => {
+    const res = await axios.get(AIR_QUALITY_API_URL, {
+      params: {
+        latitude: 14.5995,
+        longitude: 120.9842,
+        current: "us_aqi,pm2_5,pm10,ozone,nitrogen_dioxide,sulphur_dioxide,carbon_monoxide",
+        timezone: "auto",
+      },
+      timeout: 10000,
+    });
+
+    assert.equal(res.status, 200);
+    assert.ok(res.data.current, "response is missing `current` block");
+    assert.equal(typeof res.data.current.us_aqi, "number");
+    assert.equal(typeof res.data.current.pm2_5, "number");
+    assert.equal(typeof res.data.current.pm10, "number");
   });
 });
 

@@ -7,7 +7,13 @@
  */
 
 import axios from "axios";
-import { WEATHER_API_URL, HISTORICAL_API_URL } from "./constants.js";
+import {
+  WEATHER_API_URL,
+  HISTORICAL_API_URL,
+  AIR_QUALITY_API_URL,
+  TIMEOUT_FORECAST_MS,
+  TIMEOUT_HISTORICAL_MS,
+} from "./constants.js";
 
 /**
  * Unit labels returned alongside the `current` block (e.g. `"°C"`, `"km/h"`).
@@ -124,7 +130,7 @@ export async function getWeather(
       timezone: "auto",
       forecast_days: 7,
     },
-    timeout: 10000,
+    timeout: TIMEOUT_FORECAST_MS,
   });
 
   return res.data;
@@ -190,6 +196,69 @@ export interface HistoricalData {
  * console.log(data.daily.temperature_2m_max[0]);
  * ```
  */
+// ─── AIR QUALITY ─────────────────────────────────────────────────
+
+/** Current pollutant levels and US AQI returned by the air quality endpoint. */
+export interface AirQualityCurrent {
+  us_aqi: number;
+  pm2_5: number;
+  pm10: number;
+  ozone: number;
+  nitrogen_dioxide: number;
+  sulphur_dioxide: number;
+  carbon_monoxide: number;
+}
+
+/** Unit labels for each field in {@link AirQualityCurrent}. */
+export interface AirQualityUnits {
+  us_aqi: string;
+  pm2_5: string;
+  pm10: string;
+  ozone: string;
+  nitrogen_dioxide: string;
+  sulphur_dioxide: string;
+  carbon_monoxide: string;
+}
+
+/** Top-level response shape returned by the Open-Meteo air quality endpoint. */
+export interface AirQualityData {
+  current: AirQualityCurrent;
+  current_units: AirQualityUnits;
+}
+
+/**
+ * Fetch current air quality data for the given coordinates.
+ *
+ * @param lat - Latitude in decimal degrees.
+ * @param lon - Longitude in decimal degrees.
+ * @returns The parsed Open-Meteo air quality response.
+ * @throws {Error} If the request fails or times out (10 s).
+ */
+export async function getAirQuality(
+  lat: number,
+  lon: number,
+): Promise<AirQualityData> {
+  const res = await axios.get<AirQualityData>(AIR_QUALITY_API_URL, {
+    params: {
+      latitude: lat,
+      longitude: lon,
+      current: [
+        "us_aqi",
+        "pm2_5",
+        "pm10",
+        "ozone",
+        "nitrogen_dioxide",
+        "sulphur_dioxide",
+        "carbon_monoxide",
+      ].join(","),
+      timezone: "auto",
+    },
+    timeout: TIMEOUT_FORECAST_MS,
+  });
+
+  return res.data;
+}
+
 export async function getHistoricalWeather(
   lat: number,
   lon: number,
@@ -214,7 +283,7 @@ export async function getHistoricalWeather(
       ].join(","),
       timezone: "auto",
     },
-    timeout: 15000,
+    timeout: TIMEOUT_HISTORICAL_MS,
   });
 
   return res.data;

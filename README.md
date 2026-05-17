@@ -13,6 +13,7 @@ A terminal weather forecast tool written in TypeScript — current conditions, 7
 - 📍 Auto-detect your location via IP
 - 📅 7-day forecast with highs, lows, humidity, wind & rain
 - 🕰️ Historical weather for any past date back to 1940
+- 🌬️ Air quality (US AQI + PM2.5, PM10, O3, NO2, SO2, CO) via `--air`
 - ⏳ Loading spinner while fetching data
 - 🎨 Colour-coded temperatures, emoji weather icons, and aligned monospace tables
 - ⚡ Single binary, no API keys, no config
@@ -63,6 +64,11 @@ pan yesterday
 pan 2024-12-25
 pan 2024-12-25 "Las Pinas"
 pan history yesterday Tokyo
+
+# Air quality (US AQI + pollutants)
+pan Manila --air
+pan auto --air
+pan now Tokyo --air
 ```
 
 > Multi-word names (cities or countries) must be quoted: `pan "New York"`, `pan "South Korea"`.
@@ -79,6 +85,7 @@ pan history yesterday Tokyo
 | `pan auto`                              | Detect location via IP and show forecast               |
 | `pan <date> [loc]`                      | Historical weather for a past date (`YYYY-MM-DD`)      |
 | `pan history <date> [loc]`              | Explicit historical subcommand (alias: `on`)           |
+| `pan <city> --air`                      | Air quality report (US AQI + key pollutants)           |
 | `pan -h, --help`                        | Show help                                              |
 | `pan -v, --version`                     | Show version                                           |
 
@@ -149,6 +156,30 @@ pan history yesterday Tokyo
 ════════════════════════════════════════════════════════════════════════════════════
 ```
 
+### Air quality
+
+```
+════════════════════════════════════════════════════════════════════════════════════
+  🌍  Manila, National Capital Region, Philippines   •   5/17/2026, 11:27:20 PM
+════════════════════════════════════════════════════════════════════════════════════
+
+  AIR QUALITY
+
+      \ | /     🌬️  AQI (US)              75  Moderate
+       .-.      🔬  PM2.5                 26.7 μg/m³  ██████░░░░░░░░░░
+    ‒ (   ) ‒   🔬  PM10                  27.5 μg/m³  ███░░░░░░░░░░░░░
+       `-`      🌿  O3 (Ozone)            57 μg/m³
+      / | \     🏭  NO2                   23.7 μg/m³
+                ⚗️  SO2                   14.4 μg/m³
+                🚗  CO                    368 μg/m³
+
+  💡  Unusually sensitive people should consider limiting prolonged outdoor exertion.
+
+════════════════════════════════════════════════════════════════════════════════════
+  Data: Open-Meteo Air Quality (no API key required)
+════════════════════════════════════════════════════════════════════════════════════
+```
+
 ## Development
 
 ```bash
@@ -183,6 +214,7 @@ src/
 
 - **Weather data** — [Open-Meteo Forecast API](https://api.open-meteo.com) — current conditions and 7-day forecasts
 - **Historical data** — [Open-Meteo Archive API](https://archive-api.open-meteo.com) — reanalysis data back to 1940
+- **Air quality** — [Open-Meteo Air Quality API](https://air-quality-api.open-meteo.com) — US AQI, PM2.5, PM10, O3, NO2, SO2, CO
 - **Geocoding** — [Open-Meteo Geocoding API](https://geocoding-api.open-meteo.com) — city name → coordinates
 - **IP location** — [ipapi.co](https://ipapi.co) — used by the `auto` command
 - **Country mode** — resolved entirely from a local hardcoded map; no extra API calls

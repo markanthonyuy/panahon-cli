@@ -18,8 +18,8 @@ import { program } from "commander";
 import axios from "axios";
 import chalk from "chalk";
 import stringWidth from "string-width";
-import { getWeather, getHistoricalWeather } from "./weather.js";
-import { displayWeather, displayHistorical, displayCountryWeather } from "./display.js";
+import { getWeather, getHistoricalWeather, getAirQuality } from "./weather.js";
+import { displayWeather, displayHistorical, displayCountryWeather, displayAirQuality } from "./display.js";
 import {
   animateArt,
   weatherArt,
@@ -30,6 +30,8 @@ import {
   GEOCODING_API_URL,
   IP_LOCATION_API_URL,
   GITHUB_REPO_URL,
+  TIMEOUT_GEOCODING_MS,
+  TIMEOUT_IP_LOCATION_MS,
 } from "./constants.js";
 import { parseDate } from "./dates.js";
 import { startSpinner } from "./utils.js";
@@ -55,6 +57,9 @@ function footer(): string {
  * Two-line attribution + one trailing blank line.
  */
 const FOOTER_LINES = 3;
+
+/** Duration of the animated art banner shown above the help screen (ms). */
+const HELP_ANIMATION_MS = 3000;
 
 /**
  * Print the {@link footer} to stdout in grey, followed by a trailing blank
@@ -102,7 +107,7 @@ async function showHelpBanner(): Promise<void> {
   //    the top art row = ART_HEIGHT + 1 (blank after art) + help line count.
   //    Splitting on "\n" and subtracting 1 ignores the trailing newline.
   const helpLines = helpText.split("\n").length - 1;
-  await animateArt(code, ART_HEIGHT + 1 + helpLines, 3000);
+  await animateArt(code, ART_HEIGHT + 1 + helpLines, HELP_ANIMATION_MS);
 }
 
 /**
@@ -141,6 +146,12 @@ function renderHelpFooter(): string {
     [`$ ${cmd} ${sub("history")} ${arg("yesterday")} ${arg("Tokyo")}`, "Explicit history subcommand"],
   ];
 
+  const airQuality = [
+    [`$ ${cmd} ${arg("Manila")} ${flag("--air")}`,            "Air quality for Manila"],
+    [`$ ${cmd} ${sub("auto")} ${flag("--air")}`,              "Air quality for your IP location"],
+    [`$ ${cmd} ${sub("now")} ${arg("Tokyo")} ${flag("--air")}`, "Explicit subcommand form"],
+  ];
+
   // Match Commander's "term column" width so our Example/Historical
   // descriptions line up with the Commands / Options / Arguments lists above.
   // padWidth() returns the visible width of the longest term Commander will
@@ -149,7 +160,7 @@ function renderHelpFooter(): string {
   const commanderPad = helper.padWidth(program, helper);
 
   // stringWidth ignores ANSI escape codes, so coloured rows still line up.
-  const allRows = [...examples, ...historical];
+  const allRows = [...examples, ...historical, ...airQuality];
   const widest = Math.max(commanderPad, ...allRows.map(([ex]) => stringWidth(ex)));
 
   const formatRow = ([ex, d]: string[]): string =>
@@ -162,6 +173,9 @@ function renderHelpFooter(): string {
     "",
     title("Historical:"),
     ...historical.map(formatRow),
+    "",
+    title("Air Quality:"),
+    ...airQuality.map(formatRow),
     "",
     desc(`Tip: ${chalk.bold.green("pan")} is a shorter alias for ${chalk.bold.green("panahon")} — e.g. '${chalk.bold.green("pan")} ${chalk.magenta("Manila")}'.`),
     desc(`Run '${chalk.bold.green("panahon")} ${chalk.green("<command>")} ${chalk.yellow("--help")}' for command-specific help.`),
@@ -240,6 +254,43 @@ async function runHistorical(
     if (meta) {
       await animateArt(data.daily.weather_code[0], meta.linesBelowArtTop + FOOTER_LINES);
     }
+  } catch (err) {
+    console.error(`\n❌  Error: ${(err as Error).message}\n`);
+    process.exit(1);
+  }
+}
+
+/**
+ * Resolve a location, fetch its air quality data, render it, and append the footer.
+ *
+ * @param location - City name, the literal string `"auto"`, or `undefined`.
+ * @param opts     - Raw coordinate overrides.
+ */
+async function runAirQuality(
+  location: string | undefined,
+  opts: { lat?: string; lon?: string },
+): Promise<void> {
+  try {
+    let lat: number, lon: number, locationName: string;
+
+    if (opts.lat && opts.lon) {
+      lat = parseFloat(opts.lat);
+      lon = parseFloat(opts.lon);
+      locationName = `${lat}, ${lon}`;
+    } else {
+      const geo = await geocode(location ?? "auto");
+      lat = geo.lat;
+      lon = geo.lon;
+      locationName = geo.name;
+    }
+
+    console.log();
+    const stop = startSpinner(`Fetching air quality for ${locationName}…`);
+    const data = await getAirQuality(lat, lon);
+    stop();
+    const meta = displayAirQuality(data, locationName);
+    printFooter();
+    await animateArt(0, meta.linesBelowArtTop + FOOTER_LINES);
   } catch (err) {
     console.error(`\n❌  Error: ${(err as Error).message}\n`);
     process.exit(1);
@@ -347,9 +398,10 @@ program
   .description("Show current conditions + 7-day forecast for a location")
   .option("-l, --lat <latitude>", "Latitude coordinate")
   .option("-L, --lon <longitude>", "Longitude coordinate")
+  .option("--air", "Show air quality instead of forecast")
   .action(
-    (location: string | undefined, opts: { lat?: string; lon?: string }) =>
-      runForecast(location, opts),
+    (location: string | undefined, opts: { lat?: string; lon?: string; air?: boolean }) =>
+      opts.air ? runAirQuality(location, opts) : runForecast(location, opts),
   );
 
 // `panahon auto` — IP-based location detection via ipapi.co.
@@ -390,14 +442,17 @@ program
 //   - No args                → show help
 //   - First arg is a date    → historical lookup (arg2 = optional location)
 //   - First arg is a string  → forecast lookup for that city
+//   - --air flag             → air quality instead of forecast
 program
   .argument(
     "[arg1]",
     "City name, or a date (yesterday | YYYY-MM-DD)",
   )
   .argument("[arg2]", "Location, when arg1 is a date")
-  .action(async (arg1: string | undefined, arg2: string | undefined) => {
+  .option("--air", "Show air quality instead of forecast")
+  .action(async (arg1: string | undefined, arg2: string | undefined, opts: { air?: boolean }) => {
     if (!arg1) {
+      if (opts.air) return runAirQuality("auto", {});
       // No args: print help with a random animated ASCII weather banner above.
       await showHelpBanner();
       return;
@@ -415,6 +470,7 @@ program
       );
       process.exit(1);
     }
+    if (opts.air) return runAirQuality(arg1, {});
     return runForecast(arg1, {});
   });
 
@@ -434,7 +490,7 @@ async function geocode(query: string): Promise<GeoResult> {
   if (query === "auto") {
     try {
       const res = await axios.get<IpApiResponse>(IP_LOCATION_API_URL, {
-        timeout: 5000,
+        timeout: TIMEOUT_IP_LOCATION_MS,
       });
       return {
         lat: res.data.latitude,
@@ -450,7 +506,7 @@ async function geocode(query: string): Promise<GeoResult> {
 
   const res = await axios.get<GeocodingResponse>(GEOCODING_API_URL, {
     params: { name: query, count: 1, language: "en", format: "json" },
-    timeout: 8000,
+    timeout: TIMEOUT_GEOCODING_MS,
   });
 
   if (!res.data.results?.length) {

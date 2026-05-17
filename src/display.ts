@@ -7,9 +7,25 @@
 
 import chalk, { type ChalkInstance } from "chalk";
 import stringWidth from "string-width";
-import type { WeatherData, HistoricalData } from "./weather.js";
+import type { WeatherData, HistoricalData, AirQualityData } from "./weather.js";
 import { padR, padL } from "./utils.js";
 import { weatherArt, ART_WIDTH, ART_HEIGHT } from "./ascii.js";
+
+// ─── LAYOUT CONSTANTS ────────────────────────────────────────────
+const HR_WIDTH = 82;
+const BAR_WIDTH = 16;
+
+// ─── AQI CONSTANTS ───────────────────────────────────────────────
+/** US EPA AQI upper bounds for each category (exclusive of the next). */
+const AQI_GOOD = 50;
+const AQI_MODERATE = 100;
+const AQI_SENSITIVE = 150;
+const AQI_UNHEALTHY = 200;
+const AQI_VERY_UNHEALTHY = 300;
+
+/** US EPA "Unhealthy" thresholds used as bar maxes for PM2.5 and PM10. */
+const PM25_BAR_MAX = 75;
+const PM10_BAR_MAX = 150;
 
 /**
  * Lookup table mapping WMO weather interpretation codes to a
@@ -111,7 +127,7 @@ function bar(
  * @param char  - Character to repeat (default `─`).
  * @param width - Total visual width (default 64).
  */
-function hr(char = "─", width = 82): string {
+function hr(char = "─", width = HR_WIDTH): string {
   return chalk.gray(char.repeat(width));
 }
 
@@ -200,7 +216,7 @@ export function displayWeather(
     emojiCell("💧") +
       "  " +
       padR(chalk.gray("Humidity"), labelW) +
-      bar(c.relative_humidity_2m, 100, 16, chalk.blue) +
+      bar(c.relative_humidity_2m, 100, BAR_WIDTH, chalk.blue) +
       "  " +
       chalk.blue(`${c.relative_humidity_2m}%`),
 
@@ -527,5 +543,143 @@ export function displayHistorical(
   //   + 1 blank, 1 hr══, 1 "Data:", 1 hr══, 1 blank
   const rowsPrinted = Math.max(ART_HEIGHT, metrics.length);
   const linesBelowArtTop = rowsPrinted + 5;
+  return { linesBelowArtTop };
+}
+
+// ─── AQI HELPERS ─────────────────────────────────────────────────
+
+/** US AQI category metadata: label, chalk colour fn, and health tip. */
+interface AqiCategory {
+  label: string;
+  color: ChalkInstance;
+  tip: string;
+}
+
+/**
+ * Resolve a US AQI value to its category label, display colour, and health tip.
+ * Breakpoints follow the official US EPA scale.
+ */
+export function aqiCategory(aqi: number): AqiCategory {
+  if (aqi <= AQI_GOOD)
+    return { label: "Good", color: chalk.green, tip: "No health precautions needed." };
+  if (aqi <= AQI_MODERATE)
+    return { label: "Moderate", color: chalk.yellow, tip: "Unusually sensitive people should consider limiting prolonged outdoor exertion." };
+  if (aqi <= AQI_SENSITIVE)
+    return { label: "Unhealthy for Sensitive Groups", color: chalk.rgb(255, 126, 0), tip: "Sensitive groups should reduce prolonged outdoor exertion." };
+  if (aqi <= AQI_UNHEALTHY)
+    return { label: "Unhealthy", color: chalk.red, tip: "Everyone should reduce prolonged outdoor exertion." };
+  if (aqi <= AQI_VERY_UNHEALTHY)
+    return { label: "Very Unhealthy", color: chalk.magenta, tip: "Everyone should avoid prolonged outdoor exertion." };
+  return { label: "Hazardous", color: chalk.red.bold, tip: "Everyone should avoid all outdoor exertion." };
+}
+
+/**
+ * Render an air quality report to stdout for the given Open-Meteo air quality
+ * response. Layout mirrors {@link displayHistorical}: header, metric block
+ * side-by-side with ASCII art, health tip, footer.
+ *
+ * @param data         - Parsed air quality response from {@link getAirQuality}.
+ * @param locationName - Display name for the location (used in the header).
+ * @returns `{ linesBelowArtTop }` for use with {@link animateArt}.
+ */
+export function displayAirQuality(
+  data: AirQualityData,
+  locationName: string,
+): { linesBelowArtTop: number } {
+  const c = data.current;
+  const u = data.current_units;
+  const cat = aqiCategory(c.us_aqi);
+
+  // ── HEADER ────────────────────────────────────────────────
+  console.log(hr("═"));
+  console.log(
+    "  " +
+      emojiCell("🌍") +
+      "  " +
+      chalk.bold.white(locationName) +
+      chalk.gray(`   •   ${new Date().toLocaleString()}`),
+  );
+  console.log(hr("═"));
+
+  // ── AIR QUALITY BLOCK ────────────────────────────────────
+  console.log();
+  console.log("  " + chalk.bold.cyan("AIR QUALITY"));
+  console.log();
+
+  const labelW = 22;
+
+  // PM2.5 bar: US "Unhealthy" threshold = 75 μg/m³
+  // PM10 bar:  US "Unhealthy" threshold = 150 μg/m³
+  const pm25Bar = bar(c.pm2_5, PM25_BAR_MAX, BAR_WIDTH, chalk.magenta);
+  const pm10Bar = bar(c.pm10, PM10_BAR_MAX, BAR_WIDTH, chalk.blue);
+
+  const metrics: string[] = [
+    emojiCell("🌬️") +
+      "  " +
+      padR(chalk.gray("AQI (US)"), labelW) +
+      cat.color.bold(`${c.us_aqi}`) +
+      "  " +
+      cat.color(cat.label),
+
+    emojiCell("🔬") +
+      "  " +
+      padR(chalk.gray("PM2.5"), labelW) +
+      chalk.magenta(`${c.pm2_5} ${u.pm2_5}`) +
+      "  " +
+      pm25Bar,
+
+    emojiCell("🔬") +
+      "  " +
+      padR(chalk.gray("PM10"), labelW) +
+      chalk.blue(`${c.pm10} ${u.pm10}`) +
+      "  " +
+      pm10Bar,
+
+    emojiCell("🌿") +
+      "  " +
+      padR(chalk.gray("O3 (Ozone)"), labelW) +
+      chalk.green(`${c.ozone} ${u.ozone}`),
+
+    emojiCell("🏭") +
+      "  " +
+      padR(chalk.gray("NO2"), labelW) +
+      chalk.yellow(`${c.nitrogen_dioxide} ${u.nitrogen_dioxide}`),
+
+    emojiCell("⚗️") +
+      "  " +
+      padR(chalk.gray("SO2"), labelW) +
+      chalk.cyan(`${c.sulphur_dioxide} ${u.sulphur_dioxide}`),
+
+    emojiCell("🚗") +
+      "  " +
+      padR(chalk.gray("CO"), labelW) +
+      chalk.gray(`${c.carbon_monoxide} ${u.carbon_monoxide}`),
+  ];
+
+  // Render art + metrics side-by-side. Art has ART_HEIGHT (5) rows; metrics
+  // has 7 rows. Rows beyond ART_HEIGHT use a blank art column.
+  const art = weatherArt(0); // clear-sky art as a neutral backdrop
+  const blank = " ".repeat(ART_WIDTH);
+  for (let i = 0; i < metrics.length; i++) {
+    const left = i < ART_HEIGHT ? art[i] : blank;
+    console.log("  " + left + "  " + metrics[i]);
+  }
+
+  // ── HEALTH TIP ────────────────────────────────────────────
+  console.log();
+  console.log("  " + cat.color(`💡  ${cat.tip}`));
+
+  // ── FOOTER ────────────────────────────────────────────────
+  console.log();
+  console.log(hr("═"));
+  console.log(
+    chalk.gray("  Data: Open-Meteo Air Quality (no API key required)"),
+  );
+  console.log(hr("═"));
+  console.log();
+
+  //   metrics.length             : art-or-metric rows
+  //   + 1 blank, 1 tip, 1 blank, 1 hr══, 1 "Data:", 1 hr══, 1 blank
+  const linesBelowArtTop = metrics.length + 7;
   return { linesBelowArtTop };
 }

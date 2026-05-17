@@ -20,6 +20,10 @@ import { padR } from "./utils.js";
 export const ART_WIDTH = 12;
 /** Number of rows in every ASCII art frame. */
 export const ART_HEIGHT = 5;
+/** Default total animation duration in ms. */
+export const ANIM_DURATION_MS = 2500;
+/** Default time between frame swaps in ms. */
+export const ANIM_FRAME_MS = 500;
 
 /**
  * Broad visual categories the ASCII art is grouped by. Multiple WMO codes
@@ -398,8 +402,8 @@ export function weatherArt(code: number): string[] {
 export async function animateArt(
   code: number,
   linesBelowArtTop: number,
-  durationMs = 2500,
-  frameMs = 500,
+  durationMs = ANIM_DURATION_MS,
+  frameMs = ANIM_FRAME_MS,
 ): Promise<void> {
   if (!process.stdout.isTTY) return;
 

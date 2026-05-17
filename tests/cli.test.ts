@@ -118,6 +118,25 @@ describe("panahon CLI", () => {
     });
   });
 
+  describe("air quality flag", { skip: skipNetwork }, () => {
+    it("renders the air quality report for a named city", async () => {
+      const { stdout, code } = await run("Manila", "--air");
+      assert.equal(code, 0);
+      assert.match(stdout, /Fetching air quality for Manila/);
+      assert.match(stdout, /AIR QUALITY/);
+      assert.match(stdout, /AQI \(US\)/);
+      assert.match(stdout, /PM2\.5/);
+      assert.match(stdout, /Created by Mark Uy/);
+    });
+
+    it("renders air quality via the now subcommand with --air", async () => {
+      const { stdout, code } = await run("now", "Tokyo", "--air");
+      assert.equal(code, 0);
+      assert.match(stdout, /AIR QUALITY/);
+      assert.match(stdout, /AQI \(US\)/);
+    });
+  });
+
   describe("country forecast", { skip: skipNetwork }, () => {
     it("renders a multi-city table for a single-word country", async () => {
       const { stdout, code } = await run("Japan");
