@@ -7,7 +7,7 @@
 
 import chalk, { type ChalkInstance } from "chalk";
 import stringWidth from "string-width";
-import type { WeatherData } from "./weather.js";
+import type { WeatherData, HistoricalData } from "./weather.js";
 
 /**
  * Lookup table mapping WMO weather interpretation codes to a
@@ -338,6 +338,140 @@ export function displayWeather(data: WeatherData, locationName: string): void {
   console.log(hr("═"));
   console.log(
     chalk.gray("  Data: Open-Meteo.com (open-source, no API key required)"),
+  );
+  console.log(hr("═"));
+  console.log();
+}
+
+/**
+ * Render a single-day historical archive report.
+ *
+ * Layout mirrors {@link displayWeather} but omits the live "current conditions"
+ * block (there is no live snapshot for a past date) and the 7-day outlook —
+ * instead it shows the day's high, low, mean, precipitation, wind, and
+ * sunrise/sunset times.
+ *
+ * @param data         - Parsed archive response from `getHistoricalWeather`.
+ * @param locationName - Display name for the location.
+ * @param dateStr      - The date being reported, in ISO `YYYY-MM-DD` format.
+ */
+export function displayHistorical(
+  data: HistoricalData,
+  locationName: string,
+  dateStr: string,
+): void {
+  const d = data.daily;
+  const u = data.daily_units;
+
+  if (!d.time?.length) {
+    console.log(chalk.yellow(`\n  No historical data available for ${dateStr}.\n`));
+    return;
+  }
+
+  const [emoji, desc] = wmo(d.weather_code[0]);
+  const hi = d.temperature_2m_max[0];
+  const lo = d.temperature_2m_min[0];
+  const mean = d.temperature_2m_mean[0];
+  const rain = d.precipitation_sum[0];
+  const windSpd = d.wind_speed_10m_max[0];
+  const windDeg = d.wind_direction_10m_dominant[0];
+  const sunrise = d.sunrise[0];
+  const sunset = d.sunset[0];
+
+  // Pretty-print the target date (e.g. "Wed, Dec 25 2024").
+  const niceDate = new Date(dateStr + "T12:00:00").toLocaleDateString(
+    undefined,
+    { weekday: "short", year: "numeric", month: "short", day: "numeric" },
+  );
+
+  // ── HEADER ────────────────────────────────────────────────
+  console.log(hr("═"));
+  console.log(
+    "  " +
+      emojiCell("🕰️") +
+      "  " +
+      chalk.bold.white(locationName) +
+      chalk.gray(`   •   ${niceDate}`),
+  );
+  console.log(hr("═"));
+
+  // ── DAILY SUMMARY ─────────────────────────────────────────
+  console.log();
+  console.log("  " + chalk.bold.cyan("HISTORICAL SUMMARY"));
+  console.log();
+
+  const labelW = 18;
+  const hiFn = tempColor(hi);
+  const loFn = tempColor(lo);
+  const meanFn = tempColor(mean);
+
+  console.log(
+    "  " +
+      emojiCell(emoji) +
+      "  " +
+      padR(chalk.gray("Condition"), labelW) +
+      chalk.bold(desc),
+  );
+
+  console.log(
+    "  " +
+      emojiCell("🌡️") +
+      "  " +
+      padR(chalk.gray("High / Low"), labelW) +
+      hiFn(`${hi}${u.temperature_2m_max}`) +
+      chalk.gray("  /  ") +
+      loFn(`${lo}${u.temperature_2m_min}`),
+  );
+
+  console.log(
+    "  " +
+      emojiCell("🌡️") +
+      "  " +
+      padR(chalk.gray("Mean"), labelW) +
+      meanFn(`${mean}${u.temperature_2m_mean}`),
+  );
+
+  console.log(
+    "  " +
+      emojiCell("💨") +
+      "  " +
+      padR(chalk.gray("Wind (peak)"), labelW) +
+      chalk.yellow(
+        `${windSpd} ${u.wind_speed_10m_max} ${windDir(windDeg)}`,
+      ),
+  );
+
+  console.log(
+    "  " +
+      emojiCell("🌧️") +
+      "  " +
+      padR(chalk.gray("Precipitation"), labelW) +
+      chalk.cyan(`${rain} ${u.precipitation_sum}`),
+  );
+
+  // Sunrise / sunset (formatted as HH:MM in the location's local time).
+  const fmtTime = (iso: string): string => {
+    const t = new Date(iso);
+    return `${String(t.getHours()).padStart(2, "0")}:${String(t.getMinutes()).padStart(2, "0")}`;
+  };
+
+  console.log(
+    "  " +
+      emojiCell("🌅") +
+      "  " +
+      padR(chalk.gray("Sunrise / Sunset"), labelW) +
+      chalk.yellow(fmtTime(sunrise)) +
+      chalk.gray("  /  ") +
+      chalk.magenta(fmtTime(sunset)),
+  );
+
+  // ── DATA SOURCE FOOTER ────────────────────────────────────
+  console.log();
+  console.log(hr("═"));
+  console.log(
+    chalk.gray(
+      "  Data: Open-Meteo Archive (historical reanalysis, no API key required)",
+    ),
   );
   console.log(hr("═"));
   console.log();

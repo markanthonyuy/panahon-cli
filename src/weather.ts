@@ -7,7 +7,7 @@
  */
 
 import axios from "axios";
-import { WEATHER_API_URL } from "./constants.js";
+import { WEATHER_API_URL, HISTORICAL_API_URL } from "./constants.js";
 
 /**
  * Unit labels returned alongside the `current` block (e.g. `"°C"`, `"km/h"`).
@@ -125,6 +125,96 @@ export async function getWeather(
       forecast_days: 7,
     },
     timeout: 10000,
+  });
+
+  return res.data;
+}
+
+// ─── HISTORICAL ──────────────────────────────────────────────────
+
+/**
+ * Daily summary fields returned by the historical archive API.
+ * Each array contains one entry per day in the requested date range.
+ */
+export interface HistoricalDaily {
+  /** ISO date strings (YYYY-MM-DD), one per day in the range. */
+  time: string[];
+  /** Dominant WMO weather code for each day. */
+  weather_code: number[];
+  /** Daily high temperature. */
+  temperature_2m_max: number[];
+  /** Daily low temperature. */
+  temperature_2m_min: number[];
+  /** Daily mean temperature. */
+  temperature_2m_mean: number[];
+  /** Total precipitation for the day. */
+  precipitation_sum: number[];
+  /** Peak wind speed for the day. */
+  wind_speed_10m_max: number[];
+  /** Dominant wind direction (degrees clockwise from north). */
+  wind_direction_10m_dominant: number[];
+  /** Sunrise time (ISO string) for the day. */
+  sunrise: string[];
+  /** Sunset time (ISO string) for the day. */
+  sunset: string[];
+}
+
+/** Unit labels for fields in {@link HistoricalDaily}. */
+export interface HistoricalDailyUnits {
+  temperature_2m_max: string;
+  temperature_2m_min: string;
+  temperature_2m_mean: string;
+  precipitation_sum: string;
+  wind_speed_10m_max: string;
+}
+
+/** Top-level response shape returned by the Open-Meteo archive endpoint. */
+export interface HistoricalData {
+  daily: HistoricalDaily;
+  daily_units: HistoricalDailyUnits;
+}
+
+/**
+ * Fetch the historical daily summary for a single date.
+ *
+ * @param lat  - Latitude in decimal degrees.
+ * @param lon  - Longitude in decimal degrees.
+ * @param date - Target date in ISO format (YYYY-MM-DD).
+ * @returns    The parsed archive response, containing a single day's data.
+ * @throws {Error} If the request fails, times out (15 s), or the API rejects
+ *                 the date (e.g. future date / before 1940).
+ *
+ * @example
+ * ```ts
+ * const data = await getHistoricalWeather(14.6, 121.0, "2024-12-25");
+ * console.log(data.daily.temperature_2m_max[0]);
+ * ```
+ */
+export async function getHistoricalWeather(
+  lat: number,
+  lon: number,
+  date: string,
+): Promise<HistoricalData> {
+  const res = await axios.get<HistoricalData>(HISTORICAL_API_URL, {
+    params: {
+      latitude: lat,
+      longitude: lon,
+      start_date: date,
+      end_date: date,
+      daily: [
+        "weather_code",
+        "temperature_2m_max",
+        "temperature_2m_min",
+        "temperature_2m_mean",
+        "precipitation_sum",
+        "wind_speed_10m_max",
+        "wind_direction_10m_dominant",
+        "sunrise",
+        "sunset",
+      ].join(","),
+      timezone: "auto",
+    },
+    timeout: 15000,
   });
 
   return res.data;

@@ -17,8 +17,8 @@
 import { program } from "commander";
 import axios from "axios";
 import chalk from "chalk";
-import { getWeather } from "./weather.js";
-import { displayWeather } from "./display.js";
+import { getWeather, getHistoricalWeather } from "./weather.js";
+import { displayWeather, displayHistorical } from "./display.js";
 import {
   GEOCODING_API_URL,
   IP_LOCATION_API_URL,
@@ -83,6 +83,81 @@ interface GeocodingResponse {
 }
 
 /**
+ * Parse a user-supplied date token into a canonical ISO `YYYY-MM-DD` string.
+ *
+ * Accepted forms:
+ *  - Keywords: `yesterday`, `today` (case-insensitive)
+ *  - `YYYY-MM-DD` — ISO 8601 date (the only numeric format supported)
+ *
+ * @param s - Raw input token.
+ * @returns ISO date string, or `null` if the input is not a recognised date.
+ */
+function parseDate(s: string): string | null {
+  const lower = s.toLowerCase();
+
+  if (lower === "yesterday") {
+    const d = new Date();
+    d.setDate(d.getDate() - 1);
+    return toISODate(d);
+  }
+  if (lower === "today") {
+    return toISODate(new Date());
+  }
+
+  // YYYY-MM-DD (ISO 8601)
+  if (/^\d{4}-\d{2}-\d{2}$/.test(s)) return s;
+
+  return null;
+}
+
+/** Format a Date as a local `YYYY-MM-DD` string (no timezone shift). */
+function toISODate(d: Date): string {
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  return `${y}-${m}-${day}`;
+}
+
+/**
+ * Resolve a location, fetch historical archive data for the given date,
+ * render it, and append the footer.
+ *
+ * @param dateStr  - Date in ISO `YYYY-MM-DD` (already validated/normalised).
+ * @param location - City name, `"auto"`, or `undefined` (treated as `"auto"`).
+ * @param opts     - Optional raw coordinate overrides.
+ */
+async function runHistorical(
+  dateStr: string,
+  location: string | undefined,
+  opts: { lat?: string; lon?: string },
+): Promise<void> {
+  try {
+    let lat: number, lon: number, locationName: string;
+
+    if (opts.lat && opts.lon) {
+      lat = parseFloat(opts.lat);
+      lon = parseFloat(opts.lon);
+      locationName = `${lat}, ${lon}`;
+    } else {
+      const geo = await geocode(location ?? "auto");
+      lat = geo.lat;
+      lon = geo.lon;
+      locationName = geo.name;
+    }
+
+    console.log(
+      `\nFetching historical weather for ${locationName} on ${dateStr}...\n`,
+    );
+    const data = await getHistoricalWeather(lat, lon, dateStr);
+    displayHistorical(data, locationName, dateStr);
+    printFooter();
+  } catch (err) {
+    console.error(`\n❌  Error: ${(err as Error).message}\n`);
+    process.exit(1);
+  }
+}
+
+/**
  * Resolve a location, fetch its forecast, render it, and append the footer.
  *
  * Exits the process with code 1 on any error (network failure, unknown city,
@@ -134,10 +209,16 @@ program
     "after",
     `
 Examples:
-  $ panahon "Las Pinas"         Show forecast for a city
-  $ panahon now Tokyo           Same as above (explicit subcommand)
-  $ panahon auto                Detect location from your IP
-  $ panahon now -l 14.5 -L 121  Use raw latitude/longitude
+  $ panahon "Las Pinas"             Show forecast for a city
+  $ panahon now Tokyo               Same as above (explicit subcommand)
+  $ panahon auto                    Detect location from your IP
+  $ panahon now -l 14.5 -L 121      Use raw latitude/longitude
+
+Historical:
+  $ panahon yesterday               Yesterday's weather for your IP location
+  $ panahon 2024-12-25              Specific date (ISO YYYY-MM-DD)
+  $ panahon 2024-12-25 "Las Pinas"  Specific date for a city
+  $ panahon history yesterday Tokyo Explicit history subcommand
 
 Run 'panahon <command> --help' for command-specific help.
 
@@ -163,14 +244,62 @@ program
   .description("Detect your location via IP and show the forecast")
   .action(() => runForecast("auto", {}));
 
-// Default command: `panahon <location>` or `panahon` (no args, shows help).
+// `panahon history <date> [location]` — historical archive lookup.
+// Accepts `yesterday`, `MM/DD/YYYY`, or `YYYY-MM-DD`.
 program
-  .argument("[location]", "City name to look up (omit to see help)")
-  .action((location: string | undefined) => {
-    if (!location) {
+  .command("history <date> [location]")
+  .alias("on")
+  .description(
+    "Show historical weather for a past date (yesterday | YYYY-MM-DD)",
+  )
+  .option("-l, --lat <latitude>", "Latitude coordinate")
+  .option("-L, --lon <longitude>", "Longitude coordinate")
+  .action(
+    (
+      date: string,
+      location: string | undefined,
+      opts: { lat?: string; lon?: string },
+    ) => {
+      const iso = parseDate(date);
+      if (!iso) {
+        console.error(
+          `\n❌  Error: Could not parse date "${date}". ` +
+            `Use 'yesterday' or ISO format YYYY-MM-DD (e.g. 2024-12-25).\n`,
+        );
+        process.exit(1);
+      }
+      return runHistorical(iso, location, opts);
+    },
+  );
+
+// Default command: `panahon [arg1] [arg2]`.
+//   - No args                → show help
+//   - First arg is a date    → historical lookup (arg2 = optional location)
+//   - First arg is a string  → forecast lookup for that city
+program
+  .argument(
+    "[arg1]",
+    "City name, or a date (yesterday | YYYY-MM-DD)",
+  )
+  .argument("[arg2]", "Location, when arg1 is a date")
+  .action((arg1: string | undefined, arg2: string | undefined) => {
+    if (!arg1) {
       program.help();
     }
-    return runForecast(location, {});
+    const iso = parseDate(arg1!);
+    if (iso) {
+      return runHistorical(iso, arg2, {});
+    }
+    // Looks like a numeric date but not ISO — give a clear hint instead of
+    // letting it fall through to the geocoder and produce a "not found" error.
+    if (/^\d{1,4}[\/\-.]\d{1,2}[\/\-.]\d{1,4}$/.test(arg1!)) {
+      console.error(
+        `\n❌  Error: "${arg1}" looks like a date but is not in ISO format. ` +
+          `Use YYYY-MM-DD (e.g. 2024-12-25).\n`,
+      );
+      process.exit(1);
+    }
+    return runForecast(arg1, {});
   });
 
 program.parse();

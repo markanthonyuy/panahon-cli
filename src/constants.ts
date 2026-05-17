@@ -6,6 +6,12 @@
 /** Open-Meteo forecast endpoint. Returns current + daily weather data. */
 export const WEATHER_API_URL = "https://api.open-meteo.com/v1/forecast";
 
+/**
+ * Open-Meteo historical archive endpoint. Returns past weather for an
+ * arbitrary date range (data available from 1940 onward, with a ~2-day delay).
+ */
+export const HISTORICAL_API_URL = "https://archive-api.open-meteo.com/v1/archive";
+
 /** Open-Meteo geocoding endpoint. Resolves a city name to lat/lon. */
 export const GEOCODING_API_URL =
   "https://geocoding-api.open-meteo.com/v1/search";
