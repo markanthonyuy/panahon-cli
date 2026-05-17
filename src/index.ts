@@ -2,9 +2,22 @@
 
 import { program } from "commander";
 import axios from "axios";
+import chalk from "chalk";
 import { getWeather } from "./weather.js";
 import { displayWeather } from "./display.js";
 import { GEOCODING_API_URL, IP_LOCATION_API_URL } from "./constants.js";
+
+function footer(): string {
+  return (
+    "Created by Mark Uy <macmac.uy@gmail.com>\n" +
+    "A portfolio project — https://github.com/markanthonyuy/panahon-cli"
+  );
+}
+
+function printFooter(): void {
+  console.log(chalk.gray(footer()));
+  console.log();
+}
 
 interface GeoResult {
   lat: number;
@@ -52,6 +65,7 @@ async function runForecast(
     console.log(`\nFetching weather for ${locationName}...\n`);
     const data = await getWeather(lat, lon);
     displayWeather(data, locationName);
+    printFooter();
   } catch (err) {
     console.error(`\n❌  Error: ${(err as Error).message}\n`);
     process.exit(1);
@@ -62,7 +76,7 @@ program
   .name("panahon")
   .description(
     "🌤  Terminal weather forecast — current conditions, 7-day forecast, wind & humidity.\n" +
-      "Powered by Open-Meteo (no API key required)."
+      "Powered by Open-Meteo (no API key required).",
   )
   .version("0.1.0", "-v, --version", "Show version number")
   .helpOption("-h, --help", "Show help")
@@ -77,8 +91,7 @@ Examples:
 
 Run 'panahon <command> --help' for command-specific help.
 
-Created by Mark Uy <macmac.uy@gmail.com>
-A portfolio project — https://github.com/markuy/panahon`
+${footer()}`,
   );
 
 program
@@ -87,8 +100,9 @@ program
   .description("Show current conditions + 7-day forecast for a location")
   .option("-l, --lat <latitude>", "Latitude coordinate")
   .option("-L, --lon <longitude>", "Longitude coordinate")
-  .action((location: string | undefined, opts: { lat?: string; lon?: string }) =>
-    runForecast(location, opts),
+  .action(
+    (location: string | undefined, opts: { lat?: string; lon?: string }) =>
+      runForecast(location, opts),
   );
 
 program
@@ -110,7 +124,9 @@ program.parse();
 async function geocode(query: string): Promise<GeoResult> {
   if (query === "auto") {
     try {
-      const res = await axios.get<IpApiResponse>(IP_LOCATION_API_URL, { timeout: 5000 });
+      const res = await axios.get<IpApiResponse>(IP_LOCATION_API_URL, {
+        timeout: 5000,
+      });
       return {
         lat: res.data.latitude,
         lon: res.data.longitude,
@@ -123,13 +139,10 @@ async function geocode(query: string): Promise<GeoResult> {
     }
   }
 
-  const res = await axios.get<GeocodingResponse>(
-    GEOCODING_API_URL,
-    {
-      params: { name: query, count: 1, language: "en", format: "json" },
-      timeout: 8000,
-    },
-  );
+  const res = await axios.get<GeocodingResponse>(GEOCODING_API_URL, {
+    params: { name: query, count: 1, language: "en", format: "json" },
+    timeout: 8000,
+  });
 
   if (!res.data.results?.length) {
     throw new Error(`Location "${query}" not found. Try a different spelling.`);
