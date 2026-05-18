@@ -19,7 +19,7 @@ import axios from "axios";
 import chalk from "chalk";
 import stringWidth from "string-width";
 import { getWeather, getHistoricalWeather, getAirQuality } from "./weather.js";
-import { displayWeather, displayHistorical, displayCountryWeather, displayAirQuality } from "./display.js";
+import { displayWeather, displayWeatherMinimal, displayHistorical, displayCountryWeather, displayAirQuality } from "./display.js";
 import {
   animateArt,
   weatherArt,
@@ -35,7 +35,7 @@ import {
 } from "./constants.js";
 import { parseDate } from "./dates.js";
 import { startSpinner } from "./utils.js";
-import { COUNTRY_CITIES, COUNTRY_FLAGS, type CityEntry } from "./countries.js";
+import { COUNTRY_CITIES, COUNTRY_FLAGS, COUNTRY_CODES, type CityEntry } from "./countries.js";
 
 /**
  * Build the attribution footer shown both in `--help` output and at the end
@@ -152,6 +152,12 @@ function renderHelpFooter(): string {
     [`$ ${cmd} ${sub("now")} ${arg("Tokyo")} ${flag("--air")}`, "Explicit subcommand form"],
   ];
 
+  const minimal = [
+    [`$ ${cmd} ${arg("Manila")} ${flag("--min")}`,            "Condition, temperature, and art — cities only"],
+    [`$ ${cmd} ${sub("auto")} ${flag("--min")}`,              "Minimal view for your IP location"],
+    [`$ ${cmd} ${sub("now")} ${arg("Tokyo")} ${flag("--minimal")}`, "Explicit subcommand form"],
+  ];
+
   // Match Commander's "term column" width so our Example/Historical
   // descriptions line up with the Commands / Options / Arguments lists above.
   // padWidth() returns the visible width of the longest term Commander will
@@ -160,7 +166,7 @@ function renderHelpFooter(): string {
   const commanderPad = helper.padWidth(program, helper);
 
   // stringWidth ignores ANSI escape codes, so coloured rows still line up.
-  const allRows = [...examples, ...historical, ...airQuality];
+  const allRows = [...examples, ...historical, ...airQuality, ...minimal];
   const widest = Math.max(commanderPad, ...allRows.map(([ex]) => stringWidth(ex)));
 
   const formatRow = ([ex, d]: string[]): string =>
@@ -176,6 +182,9 @@ function renderHelpFooter(): string {
     "",
     title("Air Quality:"),
     ...airQuality.map(formatRow),
+    "",
+    title("Minimal:"),
+    ...minimal.map(formatRow),
     "",
     desc(`Tip: ${chalk.bold.green("pan")} is a shorter alias for ${chalk.bold.green("panahon")} — e.g. '${chalk.bold.green("pan")} ${chalk.magenta("Manila")}'.`),
     desc(`Run '${chalk.bold.green("panahon")} ${chalk.green("<command>")} ${chalk.yellow("--help")}' for command-specific help.`),
@@ -310,7 +319,7 @@ async function runAirQuality(
  */
 async function runForecast(
   location: string | undefined,
-  opts: { lat?: string; lon?: string },
+  opts: { lat?: string; lon?: string; minimal?: boolean },
 ): Promise<void> {
   try {
     // Raw coordinates → single-city forecast, skip country detection.
@@ -322,9 +331,15 @@ async function runForecast(
       const stop = startSpinner(`Fetching weather for ${locationName}…`);
       const data = await getWeather(lat, lon);
       stop();
-      const meta = displayWeather(data, locationName);
-      printFooter();
-      await animateArt(data.current.weather_code, meta.linesBelowArtTop + FOOTER_LINES);
+      if (opts.minimal) {
+        const meta = displayWeatherMinimal(data, locationName);
+        printFooter();
+        await animateArt(data.current.weather_code, meta.linesBelowArtTop + FOOTER_LINES);
+      } else {
+        const meta = displayWeather(data, locationName);
+        printFooter();
+        await animateArt(data.current.weather_code, meta.linesBelowArtTop + FOOTER_LINES);
+      }
       return;
     }
 
@@ -333,6 +348,13 @@ async function runForecast(
     if (query !== "auto") {
       const country = tryGeocodeCountry(query);
       if (country) {
+        if (opts.minimal) {
+          console.error(
+            `\n❌  Error: --min is not supported for country queries. ` +
+              `Try a specific city instead (e.g. panahon Manila --min).\n`,
+          );
+          process.exit(1);
+        }
         console.log();
         const stop = startSpinner(`Fetching weather across ${country.name}…`);
         const entries = await Promise.all(
@@ -353,9 +375,15 @@ async function runForecast(
     const stop = startSpinner(`Fetching weather for ${geo.name}…`);
     const data = await getWeather(geo.lat, geo.lon);
     stop();
-    const meta = displayWeather(data, geo.name);
-    printFooter();
-    await animateArt(data.current.weather_code, meta.linesBelowArtTop + FOOTER_LINES);
+    if (opts.minimal) {
+      const meta = displayWeatherMinimal(data, geo.name);
+      printFooter();
+      await animateArt(data.current.weather_code, meta.linesBelowArtTop + FOOTER_LINES);
+    } else {
+      const meta = displayWeather(data, geo.name);
+      printFooter();
+      await animateArt(data.current.weather_code, meta.linesBelowArtTop + FOOTER_LINES);
+    }
   } catch (err) {
     console.error(`\n❌  Error: ${(err as Error).message}\n`);
     process.exit(1);
@@ -399,8 +427,9 @@ program
   .option("-l, --lat <latitude>", "Latitude coordinate")
   .option("-L, --lon <longitude>", "Longitude coordinate")
   .option("--air", "Show air quality instead of forecast")
+  .option("--min, --minimal", "Show only today's condition, temperature, and ASCII art (cities only)")
   .action(
-    (location: string | undefined, opts: { lat?: string; lon?: string; air?: boolean }) =>
+    (location: string | undefined, opts: { lat?: string; lon?: string; air?: boolean; minimal?: boolean }) =>
       opts.air ? runAirQuality(location, opts) : runForecast(location, opts),
   );
 
@@ -450,7 +479,8 @@ program
   )
   .argument("[arg2]", "Location, when arg1 is a date")
   .option("--air", "Show air quality instead of forecast")
-  .action(async (arg1: string | undefined, arg2: string | undefined, opts: { air?: boolean }) => {
+  .option("--min, --minimal", "Show only today's condition, temperature, and ASCII art (cities only)")
+  .action(async (arg1: string | undefined, arg2: string | undefined, opts: { air?: boolean; minimal?: boolean }) => {
     if (!arg1) {
       if (opts.air) return runAirQuality("auto", {});
       // No args: print help with a random animated ASCII weather banner above.
@@ -471,7 +501,7 @@ program
       process.exit(1);
     }
     if (opts.air) return runAirQuality(arg1, {});
-    return runForecast(arg1, {});
+    return runForecast(arg1, { minimal: opts.minimal });
   });
 
 program.parse();
@@ -537,7 +567,9 @@ interface CountryGeoResult {
  * No API calls — instant resolution from the local map.
  */
 function tryGeocodeCountry(query: string): CountryGeoResult | null {
-  const key = query.toLowerCase();
+  const upper = query.toUpperCase();
+  const resolvedName = upper.length === 2 ? COUNTRY_CODES[upper] : undefined;
+  const key = resolvedName ?? query.toLowerCase();
   const entries: CityEntry[] | undefined = COUNTRY_CITIES[key];
   if (!entries) return null;
 

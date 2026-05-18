@@ -14,6 +14,7 @@ A terminal weather forecast tool written in TypeScript — current conditions, 7
 - 📅 7-day forecast with highs, lows, humidity, wind & rain
 - 🕰️ Historical weather for any past date back to 1940
 - 🌬️ Air quality (US AQI + PM2.5, PM10, O3, NO2, SO2, CO) via `--air`
+- 🔍 Minimal mode (`--min`) — compact view with just the condition, temperature, and ASCII art (city lookups only)
 - ⏳ Loading spinner while fetching data
 - 🎨 Colour-coded temperatures, emoji weather icons, and aligned monospace tables
 - ⚡ Single binary, no API keys, no config
@@ -69,6 +70,11 @@ pan history yesterday Tokyo
 pan Manila --air
 pan auto --air
 pan now Tokyo --air
+
+# Minimal view — condition, temperature, and ASCII art only
+pan Manila --min
+pan auto --min
+pan now Tokyo --minimal
 ```
 
 > Multi-word names (cities or countries) must be quoted: `pan "New York"`, `pan "South Korea"`.
@@ -86,6 +92,7 @@ pan now Tokyo --air
 | `pan <date> [loc]`                      | Historical weather for a past date (`YYYY-MM-DD`)      |
 | `pan history <date> [loc]`              | Explicit historical subcommand (alias: `on`)           |
 | `pan <city> --air`                      | Air quality report (US AQI + key pollutants)           |
+| `pan <city> --min`                      | Minimal view: condition, temperature, and ASCII art (city only) |
 | `pan -h, --help`                        | Show help                                              |
 | `pan -v, --version`                     | Show version                                           |
 

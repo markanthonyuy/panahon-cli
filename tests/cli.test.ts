@@ -137,6 +137,41 @@ describe("panahon CLI", () => {
     });
   });
 
+  describe("--min with a country query", () => {
+    it("rejects --min for country queries with a helpful error and exits 1", async () => {
+      const { stderr, code } = await run("Philippines", "--min");
+      assert.equal(code, 1);
+      assert.match(stderr, /--min is not supported for country queries/);
+      assert.match(stderr, /specific city/);
+    });
+  });
+
+  describe("--min / --minimal flag", { skip: skipNetwork }, () => {
+    it("renders condition and temperature but not the 7-day forecast", async () => {
+      const { stdout, code } = await run("Manila", "--min");
+      assert.equal(code, 0);
+      assert.match(stdout, /Condition/);
+      assert.match(stdout, /Temperature/);
+      assert.doesNotMatch(stdout, /7-DAY FORECAST/);
+      assert.doesNotMatch(stdout, /CURRENT CONDITIONS/);
+      assert.match(stdout, /Created by Mark Uy/);
+    });
+
+    it("--minimal is accepted as the long form", async () => {
+      const { stdout, code } = await run("Manila", "--minimal");
+      assert.equal(code, 0);
+      assert.match(stdout, /Condition/);
+      assert.doesNotMatch(stdout, /7-DAY FORECAST/);
+    });
+
+    it("works via the now subcommand", async () => {
+      const { stdout, code } = await run("now", "Tokyo", "--min");
+      assert.equal(code, 0);
+      assert.match(stdout, /Condition/);
+      assert.doesNotMatch(stdout, /7-DAY FORECAST/);
+    });
+  });
+
   describe("country forecast", { skip: skipNetwork }, () => {
     it("renders a multi-city table for a single-word country", async () => {
       const { stdout, code } = await run("Japan");

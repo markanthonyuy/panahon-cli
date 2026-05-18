@@ -6,7 +6,7 @@
 
 import { describe, it } from "node:test";
 import assert from "node:assert/strict";
-import { COUNTRY_CITIES, COUNTRY_FLAGS } from "../src/countries.ts";
+import { COUNTRY_CITIES, COUNTRY_FLAGS, COUNTRY_CODES } from "../src/countries.ts";
 
 const entries = Object.entries(COUNTRY_CITIES);
 
@@ -191,6 +191,21 @@ describe("COUNTRY_CITIES", () => {
         cities.some((c) => c.name === expectedCity),
         `"${country}" should include "${expectedCity}"`,
       );
+    }
+  });
+
+  it("every COUNTRY_CODES value resolves to a key in COUNTRY_CITIES", () => {
+    for (const [code, name] of Object.entries(COUNTRY_CODES)) {
+      assert.ok(
+        name in COUNTRY_CITIES,
+        `COUNTRY_CODES["${code}"] = "${name}" has no entry in COUNTRY_CITIES`,
+      );
+    }
+  });
+
+  it("all COUNTRY_CODES keys are exactly 2 uppercase letters", () => {
+    for (const code of Object.keys(COUNTRY_CODES)) {
+      assert.match(code, /^[A-Z]{2}$/, `"${code}" is not a valid ISO 3166-1 alpha-2 code`);
     }
   });
 

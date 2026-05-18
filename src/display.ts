@@ -14,6 +14,7 @@ import { weatherArt, ART_WIDTH, ART_HEIGHT } from "./ascii.js";
 // ─── LAYOUT CONSTANTS ────────────────────────────────────────────
 const HR_WIDTH = 82;
 const BAR_WIDTH = 16;
+const FORECAST_LABEL_WIDTH = 16;
 
 // ─── AQI CONSTANTS ───────────────────────────────────────────────
 /** US EPA AQI upper bounds for each category (exclusive of the next). */
@@ -145,6 +146,45 @@ function emojiCell(e: string): string {
 
 
 /**
+ * Render a compact single-line view: ASCII art beside today's condition and
+ * temperature only. No header, no forecast table, no footer bar.
+ *
+ * @param data         - Parsed forecast response from {@link getWeather}.
+ * @param locationName - Display name shown beside the temperature line.
+ * @returns `{ linesBelowArtTop }` for use with {@link animateArt}.
+ */
+export function displayWeatherMinimal(
+  data: WeatherData,
+  locationName: string,
+): { linesBelowArtTop: number } {
+  const c = data.current;
+  const unit = data.current_units;
+  const [emoji, desc] = wmo(c.weather_code);
+  const tempFn = tempColor(c.temperature_2m);
+
+  const metrics: (string | undefined)[] = [
+    emojiCell(emoji) +
+      "  " +
+      padR(chalk.gray("Condition"), FORECAST_LABEL_WIDTH) +
+      chalk.bold(desc),
+    emojiCell("🌡️") +
+      "  " +
+      padR(chalk.gray("Temperature"), FORECAST_LABEL_WIDTH) +
+      tempFn(`${c.temperature_2m}${unit.temperature_2m}`) +
+      chalk.gray(`  ${locationName}`),
+  ];
+
+  console.log();
+  const art = weatherArt(c.weather_code);
+  for (let i = 0; i < ART_HEIGHT; i++) {
+    console.log("  " + art[i] + "  " + (metrics[i] ?? ""));
+  }
+  console.log();
+
+  return { linesBelowArtTop: ART_HEIGHT + 1 };
+}
+
+/**
  * Print a full weather report (header, current conditions, 7-day forecast,
  * footer) to stdout for the given Open-Meteo response.
  *
@@ -187,7 +227,6 @@ export function displayWeather(
   console.log();
 
   /** Width of the metric label column ("Condition", "Temperature", ...). */
-  const labelW = 16;
   const tempFn = tempColor(c.temperature_2m);
 
   // Build the 5 metric rows once, then render them side-by-side with the
@@ -195,12 +234,12 @@ export function displayWeather(
   const metrics: string[] = [
     emojiCell(emoji) +
       "  " +
-      padR(chalk.gray("Condition"), labelW) +
+      padR(chalk.gray("Condition"), FORECAST_LABEL_WIDTH) +
       chalk.bold(desc),
 
     emojiCell("🌡️") +
       "  " +
-      padR(chalk.gray("Temperature"), labelW) +
+      padR(chalk.gray("Temperature"), FORECAST_LABEL_WIDTH) +
       tempFn(`${c.temperature_2m}${unit.temperature_2m}`) +
       chalk.gray(
         `  (feels like ${c.apparent_temperature}${unit.apparent_temperature})`,
@@ -208,21 +247,21 @@ export function displayWeather(
 
     emojiCell("💨") +
       "  " +
-      padR(chalk.gray("Wind"), labelW) +
+      padR(chalk.gray("Wind"), FORECAST_LABEL_WIDTH) +
       chalk.yellow(
         `${c.wind_speed_10m} ${unit.wind_speed_10m} ${windDir(c.wind_direction_10m)}`,
       ),
 
     emojiCell("💧") +
       "  " +
-      padR(chalk.gray("Humidity"), labelW) +
+      padR(chalk.gray("Humidity"), FORECAST_LABEL_WIDTH) +
       bar(c.relative_humidity_2m, 100, BAR_WIDTH, chalk.blue) +
       "  " +
       chalk.blue(`${c.relative_humidity_2m}%`),
 
     emojiCell("🌧️") +
       "  " +
-      padR(chalk.gray("Precipitation"), labelW) +
+      padR(chalk.gray("Precipitation"), FORECAST_LABEL_WIDTH) +
       chalk.cyan(`${c.precipitation} ${unit.precipitation}`),
   ];
 
