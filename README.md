@@ -182,16 +182,18 @@ pan now Tokyo --air
 
 ## Development
 
+Requires [`mise`](https://mise.jdx.dev) to manage tasks and tooling.
+
 ```bash
-npm install          # install deps
-npm run dev          # run with tsx (no build step)
-npm run typecheck    # tsc --noEmit
-npm run build        # compile to dist/
-npm start            # alias for dev
-npm test             # all tests (unit + API + CLI; requires build)
-npm run test:unit    # fast pure unit tests, no network
-npm run test:api     # live Open-Meteo + ipapi health checks
-npm run test:cli     # end-to-end CLI tests against dist/index.js
+mise run setup       # first-time: install deps, build, npm link
+mise run dev         # run from source via tsx (no build step)
+mise run typecheck   # tsc --noEmit
+mise run build       # compile to dist/
+mise run test        # all tests (unit + API + CLI; requires build)
+mise run test:unit   # fast pure unit tests, no network
+mise run test:api    # live Open-Meteo + ipapi health checks
+mise run test:cli    # end-to-end CLI tests against dist/index.js
+mise run try         # smoke-test against Manila
 ```
 
 Set `PANAHON_SKIP_NETWORK=1` to skip the network-dependent tests in CI / offline.

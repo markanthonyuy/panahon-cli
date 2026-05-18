@@ -27,6 +27,14 @@
     "terminal",
     "forecast"
   ],
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/markanthonyuy/panahon-cli.git"
+  },
+  "homepage": "https://github.com/markanthonyuy/panahon-cli#readme",
+  "bugs": {
+    "url": "https://github.com/markanthonyuy/panahon-cli/issues"
+  },
   "author": "Mark Uy <macmac.uy@gmail.com>",
   "license": "MIT",
   "dependencies": {
